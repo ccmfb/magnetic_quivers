@@ -1,0 +1,1 @@
+Tool to automate some computations for magnetic quivers.
