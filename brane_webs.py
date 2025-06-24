@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 from shapely.geometry import LineString
@@ -159,7 +160,7 @@ class BraneWeb:
 
         return False
 
-    def intersection_number(self, other: 'BraneWeb') -> int:
+    def edges(self, other: 'BraneWeb') -> int:
         '''
         Returns the number of intersections number between this web and another.
         '''
@@ -188,18 +189,19 @@ class BraneWeb:
             count_inside_web2 = 0
             count_outside_web2 = 0
 
-            print('shared: ', d7_brane)
             for brane in self.branes:
+                mult = math.gcd(brane.pq_charge[0], brane.pq_charge[1])
                 if (brane.starts_on == d7_brane and brane.starts_on_side == 'inside') or (brane.ends_on == d7_brane and brane.ends_on_side == 'inside'):
-                    count_inside_web1 += 1
+                    count_inside_web1 += 1 * mult
                 if (brane.starts_on == d7_brane and brane.starts_on_side == 'outside') or (brane.ends_on == d7_brane and brane.ends_on_side == 'outside'):
-                    count_outside_web1 += 1
+                    count_outside_web1 += 1 * mult
 
             for brane in other.branes:
+                mult = math.gcd(brane.pq_charge[0], brane.pq_charge[1])
                 if (brane.starts_on == d7_brane and brane.starts_on_side == 'inside') or (brane.ends_on == d7_brane and brane.ends_on_side == 'inside'):
-                    count_inside_web2 += 1
+                    count_inside_web2 += 1 * mult
                 if (brane.starts_on == d7_brane and brane.starts_on_side == 'outside') or (brane.ends_on == d7_brane and brane.ends_on_side == 'outside'):
-                    count_outside_web2 += 1
+                    count_outside_web2 += 1 * mult
 
             # Each pair of inside/outside counts contributes to the intersection number
             count += count_inside_web1 * count_outside_web2
@@ -257,11 +259,11 @@ class SuperBraneWeb:
         '''
         return self.brane_webs[i].intersects(self.brane_webs[j])
 
-    def intersection_number(self, i: int, j: int) -> int:
+    def edges(self, i: int, j: int) -> int:
         '''
         Returns the number of intersections between the web at index i and the web at index j.
         '''
-        return self.brane_webs[i].intersection_number(self.brane_webs[j])
+        return self.brane_webs[i].edges(self.brane_webs[j])
 
     def plot(self, figsize: Tuple[int, int] = (6, 6), colors: Optional[List[str]] = None) -> plt.Figure:
         '''
@@ -280,4 +282,7 @@ class SuperBraneWeb:
         ax.set_aspect('equal', 'box')
 
         return fig
+
+    def __len__(self) -> int:
+        return len(self.brane_webs)
     
