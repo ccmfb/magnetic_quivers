@@ -1,6 +1,8 @@
 import networkx as nx
 from networkx.algorithms import isomorphism
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+from pyvis.network import Network
 
 
 class Quiver:
@@ -58,6 +60,18 @@ class Quiver:
         else:
             return []
 
+    def is_equivalent(self, other_quiver):
+        graph1 = self.quiver
+        graph2 = other_quiver.quiver
+
+        if set(graph1.nodes()) != set(graph2.nodes()): return False
+        
+        for node in graph1.nodes():
+            if graph1.nodes[node] != graph2.nodes[node]: return False
+
+        if set(graph1.edges()) != set(graph2.edges()): return False
+
+        return True
 
     def subtract(self, sub_quiver):
         '''
@@ -71,7 +85,7 @@ class Quiver:
         '''
 
         mappings = self.find_all_embeddings(sub_quiver)
-        if not mappings: return [self]  # No embeddings found, return original quiver
+        if not mappings: return []# No embeddings found, return original quiver
 
         results = []
         subgraph = sub_quiver.quiver
@@ -92,7 +106,7 @@ class Quiver:
         if results:
             return results
         else:
-            return [self]
+            return []
 
 
     def restore_balance(self, old_balance):
@@ -182,6 +196,15 @@ class Quiver:
         return balance
 
 
+    def get_coulomb_dimension(self):
+        graph = self.quiver
+        dimension = 0
+        for node in graph.nodes():
+            dimension += graph.nodes[node]['value']
+
+        return dimension - 1 # minus 1 corresponds to factorign out U(1)
+
+
     @classmethod
     def from_graph(cls, graph: nx.MultiGraph, name: str = None) -> 'Quiver':
         '''
@@ -233,6 +256,131 @@ def init_minimal_transitions(dim_upper_bound: int = 10):
             Quiver(nodes, all_edges, values, name=f"d_{n}")
         )
 
-    return an_quivers, dn_quivers
+    An_quivers = []
+    An_upper_bound = dim_upper_bound
+    for n in range(2, An_upper_bound+1):
+        nodes = [1, 2]
+        edges = [(1,2) for _ in range(n)]
+        values = [1, 1]
+
+        An_quivers.append(
+            Quiver(nodes, edges, values, name=f'A_{n}')
+        )
+
+    return an_quivers + dn_quivers + An_quivers
+    #return an_quivers, dn_quivers
+
+
+class HasseDiagram:
+    def __init__(self, quiver = None):
+        self.graph = self.build_graph(quiver)
+
+
+    def build_graph(self, starting_quiver):
+        #an_quivers, dn_quivers = init_minimal_transitions()
+        minimal_transitions = init_minimal_transitions()
+
+        adjacency_dict = {}
+        curr_quivers = [starting_quiver]
+        for _ in range(7):
+
+            new_quivers = []
+
+            for curr_quiver in curr_quivers:
+                adjacency_dict[curr_quiver] = []
+
+                for minimal_transition in minimal_transitions:
+
+                    new = curr_quiver.subtract(minimal_transition)
+
+                    if new: 
+                        new_quivers.extend(new)
+                        adjacency_dict[curr_quiver].extend(new)
+
+            curr_quivers = new_quivers
+        
+        graph = nx.Graph()
+
+        quiver_to_index = {}
+        next_idx = 0
+        for parent, children in adjacency_dict.items():
+            if parent not in quiver_to_index:
+                quiver_to_index[parent] = next_idx
+                next_idx += 1
+
+            for child in children:
+                if child not in quiver_to_index:
+                    quiver_to_index[child] = next_idx
+                    next_idx += 1
+
+        # DONT DO THIS AFTERWARDS BUT DURING SUBTRACITON
+        quivers_by_dimension = {}
+        for quiver, index in quiver_to_index.items():
+
+            dimension = quiver.get_coulomb_dimension()
+            if dimension not in quivers_by_dimension:
+                quivers_by_dimension[dimension] = [quiver]
+            else:
+                quivers_by_dimension[dimension].append(quiver)
+
+
+        # Now build the mapping duplicate_index -> rep_index
+        removed_to_kept = {}
+        for dim, quivers in quivers_by_dimension.items():
+
+            reps = []  # will hold one canonical quiver per class
+            for q in quivers:
+                # see if q matches any existing rep
+                for r in reps:
+                    if q.is_equivalent(r):
+                        # record: this q should be replaced by r
+                        removed_to_kept[ quiver_to_index[q] ] = quiver_to_index[r]
+                        break
+                else:
+                    # no match ⇒ q is a new representative
+                    reps.append(q) 
+
+
+        graph = nx.Graph()
+        for quiver, index in quiver_to_index.items():
+
+            if index in removed_to_kept:
+                actual_index = removed_to_kept[index]
+            else:
+                actual_index = index
+
+            if actual_index not in graph.nodes():
+                graph.add_node(actual_index)
+                graph.nodes[actual_index]['dimension'] = quiver.get_coulomb_dimension()
+
+        for parent, children in adjacency_dict.items():
+            u = quiver_to_index[parent]
+            u = removed_to_kept[u] if u in removed_to_kept else u
+
+            for child in children:
+                v = quiver_to_index[child]
+                v = removed_to_kept[v] if v in removed_to_kept else v
+
+                graph.add_edge(u, v)
+
+        return graph
+
+                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
 
 
