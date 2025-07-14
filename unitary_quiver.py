@@ -4,19 +4,20 @@ import matplotlib.pyplot as plt
 
 
 class Quiver:
-    def __init__(self, edges: list, node_values: list, name: str = None):
+    def __init__(self, nodes: list, edges: list, node_values: list, name: str = None):
         '''Initialize a Quiver with edges and node values.
         
         Args:
+            nodes (list): List of node ids.
             edges (list): List of tuples representing edges between nodes.
-            node_values (list): List of values for each node. In order of node IDs.
+            node_values (list): List of values for each node.
         '''
 
         self.quiver = nx.MultiGraph()
+        self.quiver.add_nodes_from(nodes)
         self.quiver.add_edges_from(edges)
 
-        nodes = list(self.quiver.nodes())
-        nodes.sort()
+        #assert set(nodes) == set(self.quiver.nodes()), 'Edges must be compatible with nodes'
         assert len(nodes) == len(node_values), "Node values must match the number of nodes."
 
         for node, value in zip(nodes, node_values):
@@ -73,18 +74,18 @@ class Quiver:
         if not mappings: return [self]  # No embeddings found, return original quiver
 
         results = []
-        H = sub_quiver.quiver
+        subgraph = sub_quiver.quiver
         for mapping in mappings:
-            G = self.quiver.copy() # New quiver for each mapping
+            graph = self.quiver.copy() # New quiver for each mapping
             old_balance = self.get_balance()
 
             for h_node, g_node in mapping.items():
-                G.nodes[g_node]['value'] -= H.nodes[h_node]['value']
+                graph.nodes[g_node]['value'] -= subgraph.nodes[h_node]['value']
 
-                if G.nodes[g_node]['value'] <= 0:
-                    G.remove_node(g_node)
+                if graph.nodes[g_node]['value'] <= 0:
+                    graph.remove_node(g_node)
 
-            new_quiver = Quiver.from_graph(G, name=f"{self.name} - {sub_quiver.name}")
+            new_quiver = Quiver.from_graph(graph, name=f"{self.name} - {sub_quiver.name}")
             new_quiver = new_quiver.restore_balance(old_balance)
             results.append(new_quiver)
 
@@ -102,7 +103,7 @@ class Quiver:
         graph = self.quiver.copy()
         curr_balance = self.get_balance()
 
-        additional_node = max(graph.nodes()) + 1
+        additional_node = max(graph.nodes()) + 1 if graph.nodes() else 1
         graph.add_node(additional_node)
         graph.nodes[additional_node]['value'] = 1
 
@@ -193,36 +194,43 @@ class Quiver:
         Returns:
             Quiver: A new Quiver instance.
         '''
+        nodes = []
+        node_values = []
+        for node, data in graph.nodes(data=True):
+            nodes.append(node)
+            node_values.append(data['value'])
+
         edges = list(graph.edges(keys=True))
-        node_values = [graph.nodes[node]['value'] for node in graph.nodes()]
-        return Quiver(edges, node_values, name=name)
+
+        return Quiver(nodes, edges, node_values, name=name)
 
 
 def init_minimal_transitions(dim_upper_bound: int = 10):
-    '''Some minimal nilpotent orbit transitions...'''
+    '''Some minimal nilpotent orbit transitions... CLEAN THIS, INDICES ARE TOO MESY'''
 
     an_quivers = []
     an_upper_bound = dim_upper_bound
     for n in range(1, an_upper_bound + 1):
+        nodes = [i+1 for i in range(n+1)]
         linear_edges = [(i, i+1) for i in range(1, n)]
         all_edges = linear_edges + [(n, n+1)] + [(n+1, 1)]
         values = [1] * (n + 1)
-        # print(f"Creating a_{n} quiver with edges: {all_edges}")
 
         an_quivers.append(
-            Quiver(all_edges, values, name=f"a_{n}")
+            Quiver(nodes, all_edges, values, name=f"a_{n}")
         )
 
     dn_quivers = []
     #dn_upper_bound = (dim_upper_bound + 3) / 2 if (dim_upper_bound + 3) % 2 == 0 else (dim_upper_bound + 2) / 2
     dn_upper_bound = 5
     for n in range(4, dn_upper_bound + 1):
+        nodes = [i+1 for i in range(n+1)]
         linear_edges = [(i, i+1) for i in range(1, n-1)]
         all_edges = linear_edges + [(2, n)] + [(n-2, n+1)]
         values = [1] + [2] * (n - 3) + [1] + [1, 1]
 
         dn_quivers.append(
-            Quiver(all_edges, values, name=f"d_{n}")
+            Quiver(nodes, all_edges, values, name=f"d_{n}")
         )
 
     return an_quivers, dn_quivers
