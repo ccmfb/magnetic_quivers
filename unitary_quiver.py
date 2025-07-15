@@ -3,6 +3,8 @@ from networkx.algorithms import isomorphism
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from pyvis.network import Network
+from collections import deque, defaultdict
+from typing import Dict, List
 
 
 class Quiver:
@@ -92,6 +94,16 @@ class Quiver:
         for mapping in mappings:
             graph = self.quiver.copy() # New quiver for each mapping
             old_balance = self.get_balance()
+
+            # Checking that subtraction is valid, ie. no negative values for nodes
+            valid_subtraction = True
+            for h_node, g_node in mapping.items():
+                val = graph.nodes[g_node]['value'] - subgraph.nodes[h_node]['value']
+                if val < 0: 
+                    valid_subtraction = False
+                    break
+
+            if not valid_subtraction: break
 
             for h_node, g_node in mapping.items():
                 graph.nodes[g_node]['value'] -= subgraph.nodes[h_node]['value']
@@ -271,7 +283,74 @@ def init_minimal_transitions(dim_upper_bound: int = 10):
     #return an_quivers, dn_quivers
 
 
-class HasseDiagram:
+class HasseDiagram(nx.Graph):
+    def __init__(self, incoming_graph_data=None, **attr):
+        super().__init__(incoming_graph_data, **attr)
+
+
+    @classmethod
+    def generate_from_quiver(cls, starting_quiver):
+        '''
+        Build a graph of quivers reachable from `starting_quiver` via minimal transitions.
+
+        Nodes: canonical representative quiver objects (unique up to equivalence).
+        Edges: transitions between quivers.
+        Each node has attribute 'dimension' = Coulomb dimension.
+        '''
+        graph = cls()
+        minimal_transitions = init_minimal_transitions()
+
+        # Keep representatives by Coulomb dimension for equivalence checking
+        reps_by_dim: Dict[int, List] = defaultdict(list)
+
+        def get_rep(quiver):
+            """
+            Return the representative for `quiver`, adding a new one if none equivalent exists.
+            """
+            dim = quiver.get_coulomb_dimension()
+            for rep in reps_by_dim[dim]:
+                if quiver.is_equivalent(rep):
+                    return rep
+            # no equivalent found => treat as new representative
+            reps_by_dim[dim].append(quiver)
+            return quiver
+
+        # BFS over quivers
+        queue = deque([starting_quiver])
+        visited = set()
+
+        while queue:
+            q = queue.popleft()
+            rep_q = get_rep(q)
+
+            # ensure node exists
+            if rep_q not in graph:
+                graph.add_node(rep_q, dimension=rep_q.get_coulomb_dimension())
+
+            # explore all minimal transitions
+            for mt in minimal_transitions:
+                # subtract may return list of new quivers or []
+                for new_q in q.subtract(mt):
+                    rep_new = get_rep(new_q)
+
+                    # add new node if missing
+                    if rep_new not in graph:
+                        graph.add_node(rep_new, dimension=rep_new.get_coulomb_dimension())
+
+                    # add edge
+                    if not graph.has_edge(rep_q, rep_new):
+                        graph.add_edge(rep_q, rep_new, transition=mt.name)
+
+                    # queue for further exploration
+                    if rep_new not in visited:
+                        visited.add(rep_new)
+                        queue.append(new_q)
+
+        return graph
+
+
+
+class HasseDiagramOld:
     def __init__(self, quiver = None):
         self.graph = self.build_graph(quiver)
 
@@ -282,11 +361,13 @@ class HasseDiagram:
 
         adjacency_dict = {}
         curr_quivers = [starting_quiver]
-        for _ in range(7):
-
+        running = True
+        while(running):
             new_quivers = []
 
             for curr_quiver in curr_quivers:
+                if not curr_quiver.quiver.edges(): continue
+
                 adjacency_dict[curr_quiver] = []
 
                 for minimal_transition in minimal_transitions:
@@ -298,6 +379,9 @@ class HasseDiagram:
                         adjacency_dict[curr_quiver].extend(new)
 
             curr_quivers = new_quivers
+
+            if not new_quivers: running = False
+
         
         graph = nx.Graph()
 
