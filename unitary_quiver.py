@@ -6,6 +6,8 @@ from pyvis.network import Network
 from collections import deque, defaultdict
 from typing import Dict, List
 import numpy as np
+import matplotlib as mpl
+import json
 
 
 class Quiver:
@@ -335,7 +337,8 @@ class HasseDiagram(nx.Graph):
         Each node has attribute 'dimension' = Coulomb dimension.
         '''
         graph = cls()
-        minimal_transitions = init_minimal_transitions()
+        dimension_upper_bound = starting_quiver.get_coulomb_dimension()
+        minimal_transitions = init_minimal_transitions(dimension_upper_bound)
 
         # Keep representatives by Coulomb dimension for equivalence checking
         reps_by_dim: Dict[int, List] = defaultdict(list)
@@ -385,123 +388,83 @@ class HasseDiagram(nx.Graph):
 
         return graph
 
+    def plot_html(self):
 
+        # quiver to id in graph
+        mapping = {quiver: i for i, quiver in enumerate(self.nodes())}
+        hasse = nx.relabel_nodes(self, mapping)
 
-class HasseDiagramOld:
-    def __init__(self, quiver = None):
-        self.graph = self.build_graph(quiver)
+        # skipping 'empty' dimensions in plot
+        dimensions = []
+        for node in hasse.nodes():
+            dimension = hasse.nodes[node]['dimension']
 
+            if dimension not in dimensions:
+                dimensions.append(dimension)
 
-    def build_graph(self, starting_quiver):
-        #an_quivers, dn_quivers = init_minimal_transitions()
-        minimal_transitions = init_minimal_transitions()
+        dimensions = sorted(dimensions)
+        dimension_to_level = {dimension: i for i,dimension in enumerate(dimensions)}
 
-        adjacency_dict = {}
-        curr_quivers = [starting_quiver]
-        running = True
-        while(running):
-            new_quivers = []
+        # assigning colors to different transitions
+        transitions = []
+        for edge in hasse.edges():
+            curr_transition = hasse.edges[edge]['transition']
 
-            for curr_quiver in curr_quivers:
-                if not curr_quiver.quiver.edges(): continue
+            if curr_transition not in transitions:
+                transitions.append(curr_transition)
 
-                adjacency_dict[curr_quiver] = []
+        number_transitions = len(transitions)
+        cmap = mpl.colormaps['tab20']
+        transition_to_color = {}
+        for i, curr_transition in enumerate(transitions):
+            rgba = cmap(i / max(number_transitions - 1, 1))
+            hex_color = mpl.colors.to_hex(rgba)
+            transition_to_color[curr_transition] = hex_color
 
-                for minimal_transition in minimal_transitions:
+        # pyvis network
+        network = Network(
+            height='600px',
+            width='80%',
+            directed=False,
+            notebook=False,
+            cdn_resources='remote'
+        )
+        network.from_nx(hasse)
 
-                    new = curr_quiver.subtract(minimal_transition)
+        # assigning node attributes
+        for node in network.nodes:
+            nid = node['id']
+            dim = hasse.nodes[nid]['dimension']
+            node['level'] = dimension_to_level[dim]
+            node['label'] = f"{dim}"
+            node['title'] = f"Dimension = {dim}"
 
-                    if new: 
-                        new_quivers.extend(new)
-                        adjacency_dict[curr_quiver].extend(new)
+        # finding unique transitions
+        for edge in network.edges:
+            u = edge['from']
+            v = edge['to']
 
-            curr_quivers = new_quivers
+            transition = hasse.edges[(u,v)]['transition']
+            edge['label'] = transition
+            edge['title'] = f"Transitions: {transition}"
+            edge['color'] = transition_to_color[transition]
 
-            if not new_quivers: running = False
+        # 8) Set hierarchical layout options
+        opts = {
+        "layout": {
+            "hierarchical": {
+            "enabled": True,
+            "direction": "DU",
+            "levelSeparation": 150,
+            "nodeSpacing": 100,
+            "sortMethod": "directed",
+            "edgeColor": {
+                "inherit": False
+            }
+            }
+        },
+        "physics": { "enabled": True }
+        }
+        network.set_options(json.dumps(opts))
 
-        
-        graph = nx.Graph()
-
-        quiver_to_index = {}
-        next_idx = 0
-        for parent, children in adjacency_dict.items():
-            if parent not in quiver_to_index:
-                quiver_to_index[parent] = next_idx
-                next_idx += 1
-
-            for child in children:
-                if child not in quiver_to_index:
-                    quiver_to_index[child] = next_idx
-                    next_idx += 1
-
-        # DONT DO THIS AFTERWARDS BUT DURING SUBTRACITON
-        quivers_by_dimension = {}
-        for quiver, index in quiver_to_index.items():
-
-            dimension = quiver.get_coulomb_dimension()
-            if dimension not in quivers_by_dimension:
-                quivers_by_dimension[dimension] = [quiver]
-            else:
-                quivers_by_dimension[dimension].append(quiver)
-
-
-        # Now build the mapping duplicate_index -> rep_index
-        removed_to_kept = {}
-        for dim, quivers in quivers_by_dimension.items():
-
-            reps = []  # will hold one canonical quiver per class
-            for q in quivers:
-                # see if q matches any existing rep
-                for r in reps:
-                    if q.is_equivalent(r):
-                        # record: this q should be replaced by r
-                        removed_to_kept[ quiver_to_index[q] ] = quiver_to_index[r]
-                        break
-                else:
-                    # no match ⇒ q is a new representative
-                    reps.append(q) 
-
-
-        graph = nx.Graph()
-        for quiver, index in quiver_to_index.items():
-
-            if index in removed_to_kept:
-                actual_index = removed_to_kept[index]
-            else:
-                actual_index = index
-
-            if actual_index not in graph.nodes():
-                graph.add_node(actual_index)
-                graph.nodes[actual_index]['dimension'] = quiver.get_coulomb_dimension()
-
-        for parent, children in adjacency_dict.items():
-            u = quiver_to_index[parent]
-            u = removed_to_kept[u] if u in removed_to_kept else u
-
-            for child in children:
-                v = quiver_to_index[child]
-                v = removed_to_kept[v] if v in removed_to_kept else v
-
-                graph.add_edge(u, v)
-
-        return graph
-
-                    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-
-
+        network.write_html('graph1.html', open_browser=True, notebook=False)
