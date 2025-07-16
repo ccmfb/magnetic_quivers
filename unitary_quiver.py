@@ -388,7 +388,7 @@ class HasseDiagram(nx.Graph):
 
         return graph
 
-    def plot_html(self):
+    def plot_html(self, path):
 
         # quiver to id in graph
         mapping = {quiver: i for i, quiver in enumerate(self.nodes())}
@@ -423,8 +423,8 @@ class HasseDiagram(nx.Graph):
 
         # pyvis network
         network = Network(
-            height='600px',
-            width='80%',
+            height='800px',
+            width='100%',
             directed=False,
             notebook=False,
             cdn_resources='remote'
@@ -467,4 +467,4 @@ class HasseDiagram(nx.Graph):
         }
         network.set_options(json.dumps(opts))
 
-        network.write_html('graph1.html', open_browser=True, notebook=False)
+        network.write_html(path, open_browser=True, notebook=False)
