@@ -294,7 +294,7 @@ function highlightFilter(filter) {
                   // adding nodes and edges to the graph
                   data = {nodes: nodes, edges: edges};
 
-                  var options = {"layout": {"hierarchical": {"enabled": true, "direction": "DU", "levelSeparation": 150, "nodeSpacing": 100, "sortMethod": "directed", "edgeColor": {"inherit": false}}}, "physics": {"enabled": true}};
+                  var options = {"layout": {"hierarchical": {"enabled": true, "direction": "DU", "levelSeparation": 150, "nodeSpacing": 100, "sortMethod": "directed", "edgeColor": {"inherit": false}}}, "physics": {"enabled": true}, "configure": {"enabled": true, "filter": ["physics"]}};
 
                   
 

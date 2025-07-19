@@ -1,8 +1,12 @@
-Tools to automate some computations when working with magnetic quivers.
+Not entirely sure what this will end up being.. but for the meantime I will use it as library to automate some computations 
+broadly related to magnetic quivers.
 
-unitary_quivers computes hasse diagrams via quiver subtraction of unitary magnetic quivers.
 
-todo:
+Some things I implemented
+- unitary quiver subtraction algorithm to create Hasse diagrams
+- calculating intersection numbers of subwebs in brane webs (needs redoing)
+
+Some things I imagine could be added as well
 - quiver -> brane system
 - finding possible subwebs
 - subweb decomposition -> magnetic quiver

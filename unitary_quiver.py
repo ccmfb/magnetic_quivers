@@ -283,7 +283,7 @@ def init_minimal_transitions(dim_upper_bound: int = 10):
         values = [1, 1]
 
         minimal_transitions.append(
-            Quiver(nodes, edges, values, name=f'A_{n}')
+            Quiver(nodes, edges, values, name=f'A_{n-1}')
         )
 
     # e_6 transition
@@ -427,7 +427,7 @@ class HasseDiagram(nx.Graph):
             width='100%',
             directed=False,
             notebook=False,
-            cdn_resources='remote'
+            cdn_resources='remote',
         )
         network.from_nx(hasse)
 
@@ -449,22 +449,31 @@ class HasseDiagram(nx.Graph):
             edge['title'] = f"Transitions: {transition}"
             edge['color'] = transition_to_color[transition]
 
-        # 8) Set hierarchical layout options
+        # 8) Set hierarchical layout options, show options in browser
+
         opts = {
-        "layout": {
-            "hierarchical": {
-            "enabled": True,
-            "direction": "DU",
-            "levelSeparation": 150,
-            "nodeSpacing": 100,
-            "sortMethod": "directed",
-            "edgeColor": {
-                "inherit": False
+            "layout": {
+                "hierarchical": {
+                "enabled": True,
+                "direction": "DU",
+                "levelSeparation": 150,
+                "nodeSpacing": 100,
+                "sortMethod": "directed",
+                "edgeColor": {
+                    "inherit": False
+                }
+                }
+            },
+            "physics": { 
+                "enabled": True 
+            },
+            "configure": {
+                "enabled": True,
+                "filter": ["physics"]      # <-- this is exactly what show_buttons(filter_=["physics"]) would have done
             }
-            }
-        },
-        "physics": { "enabled": True }
         }
         network.set_options(json.dumps(opts))
+        #network.show_buttons(filter_=["physics"])
 
+        #network.show(path)
         network.write_html(path, open_browser=True, notebook=False)
