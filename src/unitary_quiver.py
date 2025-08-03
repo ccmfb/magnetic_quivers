@@ -241,3 +241,43 @@ class Quiver:
         edges = list(graph.edges(keys=True))
 
         return Quiver(nodes, edges, node_values, name=name)
+
+    def save(self, path: str) -> None:
+        '''
+        Save image of the quiver to a file.
+        '''
+
+        quiver = self.quiver
+        pos = nx.kamada_kawai_layout(quiver)
+        nx.draw_networkx_nodes(quiver, pos, node_color="lightblue", node_size=400)
+
+        node_ids = list(quiver.nodes())
+        labels_ids = {node: f"id: {node}" for node in node_ids}
+        labels_ids_pos = {node: (pos[node][0], pos[node][1] + 0.1) for node in node_ids}
+        nx.draw_networkx_labels(quiver, labels_ids_pos, labels=labels_ids, font_size=8, verticalalignment='bottom')
+
+        labels_values = {node: f"{quiver.nodes[node]['value']}" for node in node_ids}
+        nx.draw_networkx_labels(quiver, pos, labels=labels_values, font_size=8)
+
+        seen = {}
+        for u, v, key in quiver.edges(keys=True):
+            pair = tuple(sorted((u, v)))
+            i = seen.get(pair, 0)
+            seen[pair] = i + 1
+
+            N = quiver.number_of_edges(u, v)
+            rad = (i - (N-1)/2) * 0.2
+
+            nx.draw_networkx_edges(
+                quiver, pos,
+                edgelist=[(u, v)],
+                connectionstyle=f"arc3,rad={rad}",
+                edge_color="gray"
+            )
+
+        plt.axis('off')
+
+        plt.savefig(path, bbox_inches='tight', dpi=300)
+        plt.close()
+
+

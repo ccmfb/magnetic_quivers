@@ -1,3 +1,4 @@
+import os
 from collections import defaultdict, deque
 from typing import Dict, List
 import json
@@ -7,15 +8,33 @@ from utils import init_minimal_transitions
 import networkx as nx
 from pyvis.network import Network
 import matplotlib as mpl
+import numpy as np
 
 
 class HasseDiagram(nx.Graph):
     def __init__(self, incoming_graph_data=None, **attr):
         super().__init__(incoming_graph_data, **attr)
+    
+
+    # @classmethod
+    # def generate_from_quiver(cls, starting_quiver):
+
+        # hasse = cls()
+        # dimension_upper_bound = starting_quiver.get_coulomb_dimension()
+        # minimal_transitions = init_minimal_transitions(dimension_upper_bound)
+
+        # hasse_notes = {} # id: {'quiver': quiver, 'dimension': dimension}
+
+        # for min_transition in minimal_transitions:
+
+            # for new_quiver in starting_quiver.subtract(min_transition):
+
+
+
 
 
     @classmethod
-    def generate_from_quiver(cls, starting_quiver):
+    def generate_from_quiver(cls, starting_quiver, image_path):
         '''
         Build a graph of quivers reachable from `starting_quiver` via minimal transitions.
 
@@ -46,13 +65,21 @@ class HasseDiagram(nx.Graph):
         queue = deque([starting_quiver])
         visited = set()
 
+        if not os.path.exists(f'{image_path}/sub_quivers'):
+            os.makedirs(f'{image_path}/sub_quivers')
+
         while queue:
             q = queue.popleft()
             rep_q = get_rep(q)
 
             # ensure node exists
             if rep_q not in graph:
-                graph.add_node(rep_q, dimension=rep_q.get_coulomb_dimension())
+                random_number = np.random.randint(1000000)
+                full_path = f'{image_path}/sub_quivers/{random_number}.png'
+                path = f'sub_quivers/{random_number}.png'
+                rep_q.save(full_path)
+
+                graph.add_node(rep_q, dimension=rep_q.get_coulomb_dimension(), quiver_path=path)
 
             # explore all minimal transitions
             for mt in minimal_transitions:
@@ -62,7 +89,12 @@ class HasseDiagram(nx.Graph):
 
                     # add new node if missing
                     if rep_new not in graph:
-                        graph.add_node(rep_new, dimension=rep_new.get_coulomb_dimension())
+                        random_number = np.random.randint(1000000)
+                        full_path = f'{image_path}/sub_quivers/{random_number}.png'
+                        path = f'sub_quivers/{random_number}.png'
+                        rep_new.save(full_path)
+
+                        graph.add_node(rep_new, dimension=rep_new.get_coulomb_dimension(), quiver_path=path)
 
                     # add edge
                     if not graph.has_edge(rep_q, rep_new):
@@ -76,12 +108,9 @@ class HasseDiagram(nx.Graph):
         return graph
 
     def plot_html(self, path):
-
-        # quiver to id in graph
         mapping = {quiver: i for i, quiver in enumerate(self.nodes())}
         hasse = nx.relabel_nodes(self, mapping)
 
-        # skipping 'empty' dimensions in plot
         dimensions = []
         for node in hasse.nodes():
             dimension = hasse.nodes[node]['dimension']
@@ -92,7 +121,6 @@ class HasseDiagram(nx.Graph):
         dimensions = sorted(dimensions)
         dimension_to_level = {dimension: i for i,dimension in enumerate(dimensions)}
 
-        # assigning colors to different transitions
         transitions = []
         for edge in hasse.edges():
             curr_transition = hasse.edges[edge]['transition']
@@ -108,7 +136,6 @@ class HasseDiagram(nx.Graph):
             hex_color = mpl.colors.to_hex(rgba)
             transition_to_color[curr_transition] = hex_color
 
-        # pyvis network
         network = Network(
             height='800px',
             width='100%',
@@ -118,15 +145,37 @@ class HasseDiagram(nx.Graph):
         )
         network.from_nx(hasse)
 
-        # assigning node attributes
         for node in network.nodes:
+
+            cwd = os.getcwd()
             nid = node['id']
             dim = hasse.nodes[nid]['dimension']
             node['level'] = dimension_to_level[dim]
             node['label'] = f"{dim}"
-            node['title'] = f"Dimension = {dim}"
 
-        # finding unique transitions
+            html_img = f"""
+            <div style="text-align:center;">
+            <img 
+                src="{hasse.nodes[nid]['quiver_path']}" 
+                alt="{hasse.nodes[nid]['quiver_path']}" 
+                style="
+                    display:block;
+                    margin:0 auto 8px;
+                    width: 400px;
+                    height: 400px;
+                    object-fit: contain;
+                "
+            />
+            <a href="https://example.com" target="_blank">
+                V
+            </a>
+            </div>
+            """
+            node['title'] = html_img
+
+            node['color'] = '#000000'
+            node['size'] = 8
+
         for edge in network.edges:
             u = edge['from']
             v = edge['to']
@@ -135,8 +184,7 @@ class HasseDiagram(nx.Graph):
             edge['label'] = transition
             edge['title'] = f"Transitions: {transition}"
             edge['color'] = transition_to_color[transition]
-
-        # 8) Set hierarchical layout options, show options in browser
+            edge['width'] = 3
 
         opts = {
             "layout": {
@@ -156,11 +204,9 @@ class HasseDiagram(nx.Graph):
             },
             "configure": {
                 "enabled": True,
-                "filter": ["physics"]      # <-- this is exactly what show_buttons(filter_=["physics"]) would have done
+                "filter": ["physics"]
             }
         }
         network.set_options(json.dumps(opts))
-        #network.show_buttons(filter_=["physics"])
 
-        #network.show(path)
         network.write_html(path, open_browser=True, notebook=False)

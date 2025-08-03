@@ -239,6 +239,25 @@ function highlightFilter(filter) {
              
 
              
+             /* position absolute is important and the container has to be relative or absolute as well. */
+          div.popup {
+                 position:absolute;
+                 top:0px;
+                 left:0px;
+                 display:none;
+                 background-color:#f5f4ed;
+                 -moz-border-radius: 3px;
+                 -webkit-border-radius: 3px;
+                 border-radius: 3px;
+                 border: 1px solid #808074;
+                 box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
+          }
+
+          /* hide the original tooltip */
+          .vis-tooltip {
+            display:none;
+          }
+             
         </style>
     </head>
 
@@ -282,8 +301,8 @@ function highlightFilter(filter) {
                   
 
                   // parsing and collecting nodes and edges from the python
-                  nodes = new vis.DataSet([{"color": "#97c2fc", "dimension": 65, "id": 0, "label": "65", "level": 7, "shape": "dot", "size": 10, "title": "Dimension = 65"}, {"color": "#97c2fc", "dimension": 60, "id": 1, "label": "60", "level": 6, "shape": "dot", "size": 10, "title": "Dimension = 60"}, {"color": "#97c2fc", "dimension": 55, "id": 2, "label": "55", "level": 5, "shape": "dot", "size": 10, "title": "Dimension = 55"}, {"color": "#97c2fc", "dimension": 48, "id": 3, "label": "48", "level": 4, "shape": "dot", "size": 10, "title": "Dimension = 48"}, {"color": "#97c2fc", "dimension": 39, "id": 4, "label": "39", "level": 3, "shape": "dot", "size": 10, "title": "Dimension = 39"}, {"color": "#97c2fc", "dimension": 28, "id": 5, "label": "28", "level": 2, "shape": "dot", "size": 10, "title": "Dimension = 28"}, {"color": "#97c2fc", "dimension": 15, "id": 6, "label": "15", "level": 1, "shape": "dot", "size": 10, "title": "Dimension = 15"}, {"color": "#97c2fc", "dimension": 0, "id": 7, "label": "0", "level": 0, "shape": "dot", "size": 10, "title": "Dimension = 0"}]);
-                  edges = new vis.DataSet([{"color": "#1f77b4", "from": 0, "label": "d_4", "title": "Transitions: d_4", "to": 1, "transition": "d_4", "width": 1}, {"color": "#ffbb78", "from": 1, "label": "a_5", "title": "Transitions: a_5", "to": 2, "transition": "a_5", "width": 1}, {"color": "#d62728", "from": 2, "label": "a_7", "title": "Transitions: a_7", "to": 3, "transition": "a_7", "width": 1}, {"color": "#8c564b", "from": 3, "label": "a_9", "title": "Transitions: a_9", "to": 4, "transition": "a_9", "width": 1}, {"color": "#f7b6d2", "from": 4, "label": "a_11", "title": "Transitions: a_11", "to": 5, "transition": "a_11", "width": 1}, {"color": "#bcbd22", "from": 5, "label": "a_13", "title": "Transitions: a_13", "to": 6, "transition": "a_13", "width": 1}, {"color": "#9edae5", "from": 6, "label": "a_15", "title": "Transitions: a_15", "to": 7, "transition": "a_15", "width": 1}]);
+                  nodes = new vis.DataSet([{"color": "#000000", "dimension": 65, "id": 0, "label": "65", "level": 7, "quiver_path": "sub_quivers/765445.png", "shape": "dot", "size": 8, "title": "\n            \u003cdiv style=\"text-align:center;\"\u003e\n            \u003cimg \n                src=\"sub_quivers/765445.png\" \n                alt=\"sub_quivers/765445.png\" \n                style=\"\n                    display:block;\n                    margin:0 auto 8px;\n                    width: 400px;\n                    height: 400px;\n                    object-fit: contain;\n                \"\n            /\u003e\n            \u003ca href=\"https://example.com\" target=\"_blank\"\u003e\n                V\n            \u003c/a\u003e\n            \u003c/div\u003e\n            "}, {"color": "#000000", "dimension": 60, "id": 1, "label": "60", "level": 6, "quiver_path": "sub_quivers/787418.png", "shape": "dot", "size": 8, "title": "\n            \u003cdiv style=\"text-align:center;\"\u003e\n            \u003cimg \n                src=\"sub_quivers/787418.png\" \n                alt=\"sub_quivers/787418.png\" \n                style=\"\n                    display:block;\n                    margin:0 auto 8px;\n                    width: 400px;\n                    height: 400px;\n                    object-fit: contain;\n                \"\n            /\u003e\n            \u003ca href=\"https://example.com\" target=\"_blank\"\u003e\n                V\n            \u003c/a\u003e\n            \u003c/div\u003e\n            "}, {"color": "#000000", "dimension": 55, "id": 2, "label": "55", "level": 5, "quiver_path": "sub_quivers/940728.png", "shape": "dot", "size": 8, "title": "\n            \u003cdiv style=\"text-align:center;\"\u003e\n            \u003cimg \n                src=\"sub_quivers/940728.png\" \n                alt=\"sub_quivers/940728.png\" \n                style=\"\n                    display:block;\n                    margin:0 auto 8px;\n                    width: 400px;\n                    height: 400px;\n                    object-fit: contain;\n                \"\n            /\u003e\n            \u003ca href=\"https://example.com\" target=\"_blank\"\u003e\n                V\n            \u003c/a\u003e\n            \u003c/div\u003e\n            "}, {"color": "#000000", "dimension": 48, "id": 3, "label": "48", "level": 4, "quiver_path": "sub_quivers/385966.png", "shape": "dot", "size": 8, "title": "\n            \u003cdiv style=\"text-align:center;\"\u003e\n            \u003cimg \n                src=\"sub_quivers/385966.png\" \n                alt=\"sub_quivers/385966.png\" \n                style=\"\n                    display:block;\n                    margin:0 auto 8px;\n                    width: 400px;\n                    height: 400px;\n                    object-fit: contain;\n                \"\n            /\u003e\n            \u003ca href=\"https://example.com\" target=\"_blank\"\u003e\n                V\n            \u003c/a\u003e\n            \u003c/div\u003e\n            "}, {"color": "#000000", "dimension": 39, "id": 4, "label": "39", "level": 3, "quiver_path": "sub_quivers/592732.png", "shape": "dot", "size": 8, "title": "\n            \u003cdiv style=\"text-align:center;\"\u003e\n            \u003cimg \n                src=\"sub_quivers/592732.png\" \n                alt=\"sub_quivers/592732.png\" \n                style=\"\n                    display:block;\n                    margin:0 auto 8px;\n                    width: 400px;\n                    height: 400px;\n                    object-fit: contain;\n                \"\n            /\u003e\n            \u003ca href=\"https://example.com\" target=\"_blank\"\u003e\n                V\n            \u003c/a\u003e\n            \u003c/div\u003e\n            "}, {"color": "#000000", "dimension": 28, "id": 5, "label": "28", "level": 2, "quiver_path": "sub_quivers/899737.png", "shape": "dot", "size": 8, "title": "\n            \u003cdiv style=\"text-align:center;\"\u003e\n            \u003cimg \n                src=\"sub_quivers/899737.png\" \n                alt=\"sub_quivers/899737.png\" \n                style=\"\n                    display:block;\n                    margin:0 auto 8px;\n                    width: 400px;\n                    height: 400px;\n                    object-fit: contain;\n                \"\n            /\u003e\n            \u003ca href=\"https://example.com\" target=\"_blank\"\u003e\n                V\n            \u003c/a\u003e\n            \u003c/div\u003e\n            "}, {"color": "#000000", "dimension": 15, "id": 6, "label": "15", "level": 1, "quiver_path": "sub_quivers/882332.png", "shape": "dot", "size": 8, "title": "\n            \u003cdiv style=\"text-align:center;\"\u003e\n            \u003cimg \n                src=\"sub_quivers/882332.png\" \n                alt=\"sub_quivers/882332.png\" \n                style=\"\n                    display:block;\n                    margin:0 auto 8px;\n                    width: 400px;\n                    height: 400px;\n                    object-fit: contain;\n                \"\n            /\u003e\n            \u003ca href=\"https://example.com\" target=\"_blank\"\u003e\n                V\n            \u003c/a\u003e\n            \u003c/div\u003e\n            "}, {"color": "#000000", "dimension": 0, "id": 7, "label": "0", "level": 0, "quiver_path": "sub_quivers/129252.png", "shape": "dot", "size": 8, "title": "\n            \u003cdiv style=\"text-align:center;\"\u003e\n            \u003cimg \n                src=\"sub_quivers/129252.png\" \n                alt=\"sub_quivers/129252.png\" \n                style=\"\n                    display:block;\n                    margin:0 auto 8px;\n                    width: 400px;\n                    height: 400px;\n                    object-fit: contain;\n                \"\n            /\u003e\n            \u003ca href=\"https://example.com\" target=\"_blank\"\u003e\n                V\n            \u003c/a\u003e\n            \u003c/div\u003e\n            "}]);
+                  edges = new vis.DataSet([{"color": "#1f77b4", "from": 0, "label": "d_4", "title": "Transitions: d_4", "to": 1, "transition": "d_4", "width": 3}, {"color": "#ffbb78", "from": 1, "label": "a_5", "title": "Transitions: a_5", "to": 2, "transition": "a_5", "width": 3}, {"color": "#d62728", "from": 2, "label": "a_7", "title": "Transitions: a_7", "to": 3, "transition": "a_7", "width": 3}, {"color": "#8c564b", "from": 3, "label": "a_9", "title": "Transitions: a_9", "to": 4, "transition": "a_9", "width": 3}, {"color": "#f7b6d2", "from": 4, "label": "a_11", "title": "Transitions: a_11", "to": 5, "transition": "a_11", "width": 3}, {"color": "#bcbd22", "from": 5, "label": "a_13", "title": "Transitions: a_13", "to": 6, "transition": "a_13", "width": 3}, {"color": "#9edae5", "from": 6, "label": "a_15", "title": "Transitions: a_15", "to": 7, "transition": "a_15", "width": 3}]);
 
                   nodeColors = {};
                   allNodes = nodes.get({ returnType: "Object" });
@@ -307,6 +326,68 @@ function highlightFilter(filter) {
 
                   
 
+                  
+                  // make a custom popup
+                      var popup = document.createElement("div");
+                      popup.className = 'popup';
+                      popupTimeout = null;
+                      popup.addEventListener('mouseover', function () {
+                          console.log(popup)
+                          if (popupTimeout !== null) {
+                              clearTimeout(popupTimeout);
+                              popupTimeout = null;
+                          }
+                      });
+                      popup.addEventListener('mouseout', function () {
+                          if (popupTimeout === null) {
+                              hidePopup();
+                          }
+                      });
+                      container.appendChild(popup);
+
+
+                      // use the popup event to show
+                      network.on("showPopup", function (params) {
+                          showPopup(params);
+                      });
+
+                      // use the hide event to hide it
+                      network.on("hidePopup", function (params) {
+                          hidePopup();
+                      });
+
+                      // hiding the popup through css
+                      function hidePopup() {
+                          popupTimeout = setTimeout(function () { popup.style.display = 'none'; }, 500);
+                      }
+
+                      // showing the popup
+                      function showPopup(nodeId) {
+                          // get the data from the vis.DataSet
+                          var nodeData = nodes.get([nodeId]);
+                          popup.innerHTML = nodeData[0].title;
+
+                          // get the position of the node
+                          var posCanvas = network.getPositions([nodeId])[nodeId];
+
+                          // get the bounding box of the node
+                          var boundingBox = network.getBoundingBox(nodeId);
+
+                          //position tooltip:
+                          posCanvas.x = posCanvas.x + 0.5 * (boundingBox.right - boundingBox.left);
+
+                          // convert coordinates to the DOM space
+                          var posDOM = network.canvasToDOM(posCanvas);
+
+                          // Give it an offset
+                          posDOM.x += 10;
+                          posDOM.y -= 20;
+
+                          // show and place the tooltip.
+                          popup.style.display = 'block';
+                          popup.style.top = posDOM.y + 'px';
+                          popup.style.left = posDOM.x + 'px';
+                      }
                   
 
 
