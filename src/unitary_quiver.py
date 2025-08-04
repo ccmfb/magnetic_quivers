@@ -29,6 +29,7 @@ class Quiver:
 
         for node, value in zip(nodes, node_values):
             self.quiver.nodes[node]['value'] = value
+            self.quiver.nodes[node]['decoration_id'] = None
 
         self.name = name
 
@@ -149,7 +150,7 @@ class Quiver:
         return Quiver.from_graph(graph, name=self.name)
 
 
-    def display(self):
+    def draw(self):
         '''Display the multi graph quiver using matplotlib.'''
         quiver = self.quiver
         #pos = nx.spring_layout(quiver, seed=42)
@@ -159,7 +160,12 @@ class Quiver:
         #pos = nx.multipartite_layout(quiver)
 
         # draw nodes and labels
-        nx.draw_networkx_nodes(quiver, pos, node_color="lightblue", node_size=400)
+        node_list = list(quiver.nodes())
+        fill_colors = ['lightgray' for _ in node_list]
+        border_colors = ['black' if quiver.nodes[node]['decoration_id'] is None else 'red' for node in node_list]
+        nx.draw_networkx_nodes(quiver, pos, node_color=fill_colors, edgecolors=border_colors, node_size=400, linewidths=1.5)
+
+        #nx.draw_networkx_nodes(quiver, pos, node_color="lightblue", node_size=400)
 
         # extract ids and offset positions
         node_ids = list(quiver.nodes())
@@ -189,7 +195,7 @@ class Quiver:
                 quiver, pos,
                 edgelist=[(u, v)],
                 connectionstyle=f"arc3,rad={rad}",
-                edge_color="gray"
+                edge_color="black",
             )
 
         plt.title(self.name if self.name else "Quiver") 
@@ -249,7 +255,11 @@ class Quiver:
 
         quiver = self.quiver
         pos = nx.kamada_kawai_layout(quiver)
-        nx.draw_networkx_nodes(quiver, pos, node_color="lightblue", node_size=400)
+
+        node_list = list(quiver.nodes())
+        fill_colors = ['lightgray' for _ in node_list]
+        border_colors = ['black' if quiver.nodes[node]['decoration_id'] is None else 'red' for node in node_list]
+        nx.draw_networkx_nodes(quiver, pos, node_color=fill_colors, edgecolors=border_colors, node_size=400, linewidths=1.5)
 
         node_ids = list(quiver.nodes())
         labels_ids = {node: f"id: {node}" for node in node_ids}
@@ -272,7 +282,7 @@ class Quiver:
                 quiver, pos,
                 edgelist=[(u, v)],
                 connectionstyle=f"arc3,rad={rad}",
-                edge_color="gray"
+                edge_color="black",
             )
 
         plt.axis('off')
