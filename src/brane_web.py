@@ -63,8 +63,24 @@ class BraneWeb:
             print('candidate = ', candidate)
         print('len valid candidates = ', len(unique_candidates))
 
+        # minimal candiates only
+        unique_candidates_set = sorted([set(candidate) for candidate in unique_candidates])
+        minimal_candidates = unique_candidates_set.copy()
+
+        for i, s in enumerate(unique_candidates_set):
+
+            for j, t in enumerate(unique_candidates_set):
+                if j <= i: continue
+
+                if s.issubset(t):
+                    print(f'removing candidate {t} as it is not minimal, since it contains {s}')
+                    if t in minimal_candidates:
+                        minimal_candidates.remove(t)
+
+        print('len minimal candidates = ', len(minimal_candidates))
+
         subwebs = []
-        for candidate in unique_candidates:
+        for candidate in minimal_candidates:
             candidate = list(candidate)
             brane_counts = collections.Counter(candidate)
 
