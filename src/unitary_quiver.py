@@ -33,7 +33,6 @@ class Quiver:
 
         self.name = name
 
-
     def find_all_embeddings(self, sub_quiver) -> list[dict]:
         '''
         Find all subgraph isomorphic embeddings of 'sub_quiver' into this quiver.
@@ -124,7 +123,6 @@ class Quiver:
         else:
             return []
 
-
     def restore_balance(self, old_balance):
         '''
         Adds an overall U(1) node to the quiver and adds edges to restore the balance of nodes back to their pre-subtraction
@@ -148,7 +146,6 @@ class Quiver:
             ])
 
         return Quiver.from_graph(graph, name=self.name)
-
 
     def draw(self):
         '''Display the multi graph quiver using matplotlib.'''
@@ -198,10 +195,10 @@ class Quiver:
                 edge_color="black",
             )
 
-        plt.title(self.name if self.name else "Quiver") 
+        #plt.title(self.name if self.name else "Quiver") 
         plt.axis('off')
+        #plt.savefig("plot.png", dpi=300, bbox_inches="tight")
         plt.show()
-
 
     def get_balance(self):
         balance = {}
@@ -216,7 +213,6 @@ class Quiver:
 
         return balance
 
-
     def get_coulomb_dimension(self):
         graph = self.quiver
         dimension = 0
@@ -224,7 +220,6 @@ class Quiver:
             dimension += graph.nodes[node]['value']
 
         return dimension - 1 # minus 1 corresponds to factorign out U(1)
-
 
     @classmethod
     def from_graph(cls, graph: nx.MultiGraph, name: str = None) -> 'Quiver':
