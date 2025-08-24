@@ -1,5 +1,6 @@
 import math
 import itertools
+import collections
 
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -11,7 +12,7 @@ class BraneWeb:
     '''
 
     def __init__(self):
-        self.web = nx.Graph()
+        self.web = nx.MultiGraph()
 
     def add_junction(self, junction_id: str, position: tuple):
         '''Adds a junction to the brane web (a type of node).'''
@@ -26,84 +27,73 @@ class BraneWeb:
         if start_id not in self.web.nodes or end_id not in self.web.nodes:
             raise ValueError("Both start and end nodes must exist in the brane web.")
 
-        charge = (
-            self.web.nodes[end_id]['pos'][0] - self.web.nodes[start_id]['pos'][0],
-            self.web.nodes[end_id]['pos'][1] - self.web.nodes[start_id]['pos'][1]
-        )
-        gcd = math.gcd(int(charge[0]), int(charge[1]))
-        charge = (charge[0] // gcd, charge[1] // gcd)
+        charge = self.charge_into_node(end_id, start_id)
+        for _ in range(multiplicity):
+            self.web.add_edge(start_id, end_id, charge=charge)
 
-        self.web.add_edge(start_id, end_id, charge=charge, multiplicity=multiplicity)
-
-    def find_subweb_decompositions(self, start_brane) -> list:
+    def find_subwebs_across_junction(self, junction: str) -> list:
         '''
-        Finds all possible subweb decompositions of the brane web.
+        Finds all possible subwebs that can be formed across a junction.
 
-        as of now needs an edge to start from... probably can be improved by starting from junction..
+        A subweb across a junction is defined as a set of branes connected to the junction
+        that conserves charge.
         '''
 
-        # find all edges connected to the start edge
-        u, v = start_brane
-        branes_at_u = list(self.web.edges(u))
-        if (u, v) in branes_at_u: branes_at_u.remove((u, v))
-        if (v, u) in branes_at_u: branes_at_u.remove((v, u))
-        start_charge_into_u = self.charge_into_node(u, v)
-
-        branes_at_v = list(self.web.edges(v)) # in the formate (v, x)
-        if (u, v) in branes_at_v: branes_at_v.remove((u, v))
-        if (v, u) in branes_at_v: branes_at_v.remove((v, u))
-        start_charge_into_v = self.charge_into_node(v, u)
+        branes_at_junction = list(self.web.edges(junction)) # in the formate (junction, x)
 
         candidates = []
-
-        for r in range(1, len(branes_at_u)+1):
-            combs_of_size_r = itertools.combinations(branes_at_u, r)
-
-            for comb in combs_of_size_r:
-                # check if the charges sum to zero
-                total_charge = [0, 0]
-                total_charge[0] += start_charge_into_u[0]
-                total_charge[1] += start_charge_into_u[1]
-
-                for brane in comb:
-                    charge_into_u = self.charge_into_node(u, brane[1])
-
-                    total_charge[0] += charge_into_u[0]
-                    total_charge[1] += charge_into_u[1]
-
-                if total_charge != [0, 0]:
-                    continue
-
-                valid_comb = [(u, v)] + list(comb)
-                candidates.append(valid_comb)
-
-        for r in range(1, len(branes_at_v)+1):
-            combs_of_size_r = itertools.combinations(branes_at_v, r)
+        for r in range(1, len(branes_at_junction)+1):
+            combs_of_size_r = itertools.combinations(branes_at_junction, r)
 
             for comb in combs_of_size_r:
-                # check if the charges sum to zero
-                total_charge = [0, 0]
-                total_charge[0] += start_charge_into_v[0]
-                total_charge[1] += start_charge_into_v[1]
-
-                for brane in comb:
-                    charge_into_v = self.charge_into_node(v, brane[1])
-
-                    total_charge[0] += charge_into_v[0]
-                    total_charge[1] += charge_into_v[1]
-
-                if total_charge != [0, 0]:
+                if not self.conserves_charge(comb):
                     continue
 
-                valid_comb = [(u, v)] + list(comb)
-                candidates.append(valid_comb)
-                    
-        print()
-        print('valied candidates = ', candidates)
+                candidates.append(comb)
+        candidates_sorted_inner = [tuple(sorted(candidate)) for candidate in candidates]
+        candidates_sorted = sorted(candidates_sorted_inner)
 
+        # removing duplicates
+        unique_candidates = []
+        for candidate in candidates_sorted:
+            if candidate not in unique_candidates:
+                unique_candidates.append(candidate)
 
+        for candidate in unique_candidates:
+            print('candidate = ', candidate)
+        print('len valid candidates = ', len(unique_candidates))
 
-        return []
+        subwebs = []
+        for candidate in unique_candidates:
+            candidate = list(candidate)
+            brane_counts = collections.Counter(candidate)
+
+            upd_candidate = []
+            for (u, v), count in brane_counts.items():
+                for i in range(count):
+                    upd_candidate.append(
+                        (u, v, i)
+                    )
+
+            subweb_graph = self.web.edge_subgraph(upd_candidate).copy()
+            subweb = BraneWeb.from_graph(subweb_graph)
+
+            subwebs.append(subweb)
+
+        return subwebs
+
+    def conserves_charge(self, branes: list) -> bool:
+        '''Checks if a set of branes conserves charge.'''
+        total_charge = [0, 0]
+
+        for brane in branes:
+            u, x = brane
+            charge_into_u = self.charge_into_node(u, x)
+
+            total_charge[0] += charge_into_u[0]
+            total_charge[1] += charge_into_u[1]
+
+        return total_charge == [0, 0]
 
     def charge_into_node(self, node: str, other_node: str) -> tuple:
         '''Calculates the charge vector pointing into a node from another node.'''
@@ -133,11 +123,12 @@ class BraneWeb:
         nx.draw_networkx_nodes(self.web, pos, nodelist=junctions, node_color='black', node_size=30, label='Junctions', ax=ax)
         nx.draw_networkx_nodes(self.web, pos, nodelist=seven_branes, node_color='gray', node_size=300, label='7-Branes', ax=ax)
 
+        # drawing charges on branes
         for edge in self.web.edges(data=True):
             u, v, data = edge
 
             vec = (pos[v][0] - pos[u][0], pos[v][1] - pos[u][1])
-            length = (vec[0]**2 + vec[1]**2)**0
+            length = (vec[0]**2 + vec[1]**2)**0.5
             angle = math.degrees(math.atan2(vec[1], vec[0]))
             if 90 <= angle <= 180:
                 angle -= 180
@@ -149,14 +140,47 @@ class BraneWeb:
 
             norm_vec = (vec[0] / length, vec[1] / length)
             perp_vec = (-norm_vec[1], norm_vec[0])
-            offset = 0.1
+            offset = 0.07
 
             position = (
                 pos[u][0] + 0.5*vec[0] + offset*perp_vec[0],
                 pos[u][1] + 0.5*vec[1] + offset*perp_vec[1]
             )
 
-            ax.text(position[0], position[1], f"{data['multiplicity']}{data['charge']}", rotation=angle, color='black', fontsize=10, ha='center', va='center')
+            ax.text(position[0], position[1], f"{data['charge']}", rotation=angle, color='black', fontsize=10, ha='center', va='center')
+
+        # drawing multiplicities on branes
+        edges = list(self.web.edges())
+
+        edges_sorted_inner = [tuple(sorted(edge)) for edge in edges]
+        edges_sorted = sorted(edges_sorted_inner)
+        edges_counts = collections.Counter(edges_sorted)
+
+        for (u, v), count in edges_counts.items():
+            if count == 1:
+                continue
+
+            vec = (pos[v][0] - pos[u][0], pos[v][1] - pos[u][1])
+            length = (vec[0]**2 + vec[1]**2)**0.5
+            angle = math.degrees(math.atan2(vec[1], vec[0]))
+            if 90 <= angle <= 180:
+                angle -= 180
+            elif -180 < angle < -90:
+                angle += 180
+
+            if length == 0:
+                continue
+
+            norm_vec = (vec[0] / length, vec[1] / length)
+            perp_vec = (-norm_vec[1], norm_vec[0])
+            offset = -0.07
+
+            position = (
+                pos[u][0] + 0.5*vec[0] + offset*perp_vec[0],
+                pos[u][1] + 0.5*vec[1] + offset*perp_vec[1]
+            )
+
+            ax.text(position[0], position[1], f"x{count}", rotation=angle, color='black', fontsize=10, ha='center', va='center')
 
         ax.set_aspect('equal')
         ax.grid(False)
@@ -165,6 +189,12 @@ class BraneWeb:
         else:
             plt.show()
 
+    @classmethod
+    def from_graph(cls, graph: nx.MultiGraph):
+        '''Creates a BraneWeb instance from an existing NetworkX MultiGraph.'''
+        brane_web = cls()
+        brane_web.web = graph
+        return brane_web
 
 
 
