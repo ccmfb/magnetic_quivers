@@ -5,6 +5,8 @@ import collections
 import networkx as nx
 import matplotlib.pyplot as plt
 
+from unitary_quiver import Quiver
+
 
 class BraneWeb:
     '''
@@ -30,6 +32,38 @@ class BraneWeb:
         charge = self.charge_into_node(end_id, start_id)
         for _ in range(multiplicity):
             self.web.add_edge(start_id, end_id, charge=charge)
+
+    def find_magnetic_quivers(self):
+        '''
+        Finds the magnetic quivers associated with the brane web. 
+        '''
+
+        subweb_decompositions = self.find_subweb_decompositions('j1', draw_subwebs=False)
+
+        magnetic_quivers = []
+        for i,decomp in enumerate(subweb_decompositions):
+
+            subweb_counts = {}
+            for j, subweb in enumerate(decomp):
+                edges = tuple(subweb.edges())
+
+                if edges not in subweb_counts:
+                    subweb_counts[edges] = 0
+                subweb_counts[edges] += 1
+
+            number_of_nodes = len(subweb_counts)
+
+            nodes = [i+1 for i in range(number_of_nodes)]
+            edges = [] # todo
+            values = [count for count in subweb_counts.values()]
+
+            magnetic_quivers.append(
+                Quiver(nodes, edges, values)
+            )
+        
+        return magnetic_quivers
+
+
 
     def find_subweb_decompositions(self, junction: str, draw_subwebs: bool = False) -> list:
         '''
