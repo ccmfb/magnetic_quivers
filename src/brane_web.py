@@ -213,17 +213,6 @@ class BraneWeb:
                     (curr_graph, curr_decomp)
                 )
 
-        #if draw_subwebs:
-            #for i, (graph, decomp) in enumerate(subweb_decompositions_junction):
-                #print(f"Decomposition {i+1}:")
-                #graph_web = BraneWeb.from_graph(graph)
-                #graph_web.draw()
-
-                #for j, subweb in enumerate(decomp):
-                    #print(f" Subweb {j+1}:")
-                    #subweb_instance = BraneWeb.from_graph(subweb)
-                    #subweb_instance.draw()
-
         # check for disconnected subwebs in the remaining graph
         subweb_decompositions = []
         for graph, decomp in subweb_decompositions_junction:
@@ -255,7 +244,47 @@ class BraneWeb:
                     subweb_instance.draw()
 
         subweb_decompositions = [decomp for _, decomp in subweb_decompositions]
+        subweb_decompositions = self.srule_adjusted_decompositions(subweb_decompositions)
+
         return subweb_decompositions
+
+    def srule_adjusted_decompositions(self, decompositions: list) -> list:
+        '''
+        Adjusts decompositions according to the S-rule.
+        
+        The S-rule states that no two branes can end on the same 7-brane and NS5-brane.
+        '''
+
+        # Check if s-rule is violated in any decomposition
+        for decomp in decompositions:
+            for subweb in decomp:
+                print("Subweb:", subweb.edges())
+
+                NS5_charge = 0
+                D5_charge = 0 # not actual D5 charge, just for info
+                for edge in subweb.edges(data=True):
+                    NS5_charge += abs(edge[2]['charge'][1])
+                    D5_charge += abs(edge[2]['charge'][0])
+                NS5_charge = NS5_charge // 2 
+                print("  NS5 charge:", NS5_charge)
+
+                nodes_from_edges = []
+                for u, v in subweb.edges():
+                    nodes_from_edges.append(u)
+                    nodes_from_edges.append(v)
+
+                nodes_counts = collections.Counter(nodes_from_edges)
+                print("  Nodes:", nodes_counts)
+
+                for node, count in nodes_counts.items():
+                    if self.web.nodes[node]['type'] != 'seven-brane': continue
+
+                    if count > NS5_charge and D5_charge > 0 and NS5_charge > 0:
+                        print("  S-rule violated at node", node, "with count", count, "and NS5 charge", NS5_charge)
+
+            print("-----")
+
+        return decompositions # placeholder, needs implementation
 
     def find_subwebs_across_junction(self, junction: str) -> list:
         '''
