@@ -4,6 +4,9 @@ import collections
 
 import networkx as nx
 import matplotlib.pyplot as plt
+import numpy as np
+from shapely.geometry import MultiLineString
+from shapely.strtree import STRtree
 
 from unitary_quiver import Quiver
 
@@ -54,8 +57,26 @@ class BraneWeb:
             number_of_nodes = len(subweb_counts)
 
             nodes = [i+1 for i in range(number_of_nodes)]
-            edges = [] # todo
             values = [count for count in subweb_counts.values()]
+            edges = []
+
+            for i, subweb in enumerate(subweb_counts.keys()):
+                for j, other_subweb in enumerate(subweb_counts.keys()):
+                    if i <= j: continue
+
+                    multiplicity1 = subweb_counts[subweb]
+                    multiplicity2 = subweb_counts[other_subweb]
+
+                    subweb_with_keys = [(u, v, 0) for u, v in subweb]
+                    other_subweb_with_keys = [(u, v, 0) for u, v in other_subweb]
+                    subgraph1 = self.web.edge_subgraph(subweb_with_keys)
+                    subgraph2 = self.web.edge_subgraph(other_subweb_with_keys)
+
+                    edge_num = self.edge_number(subgraph1, subgraph2, multiplicity1, multiplicity2)
+                    edge_num = edge_num // (multiplicity1 * multiplicity2)
+
+                    for _ in range(edge_num):
+                        edges.append((i+1, j+1))
 
             magnetic_quivers.append(
                 Quiver(nodes, edges, values)
@@ -63,7 +84,93 @@ class BraneWeb:
         
         return magnetic_quivers
 
+    def edge_number(self, subweb1, subweb2, multiplicity1, multiplicity2) -> int:
+        '''
+        Calculates the number of edges between two subwebs.
+        '''
 
+        # Graphs to shapely MultiLineStrings, one slightly offset for stable intersection
+        geometry1 = self.graph_to_multilinestring(subweb1)
+        geometry2 = self.graph_to_multilinestring(subweb2, offset=True)
+
+
+        # Finding intersections using STRtree for efficiency
+        all_lines1 = list(geometry1.geoms)
+        all_lines2 = list(geometry2.geoms)
+        tree2 = STRtree(all_lines2)
+
+        intersection_pairs = []
+        for i, line1 in enumerate(all_lines1):
+            candidates = tree2.query(line1)
+
+            for j in candidates:
+                candidate_line2 = all_lines2[j]
+
+                if line1.intersects(candidate_line2):
+                    intersection_pairs.append(
+                        (line1, candidate_line2)
+                    )
+
+        # Calculating intersection number
+        intersection_number = 0
+        for line1, line2 in intersection_pairs:
+            line1 = list(line1.coords)
+            line2 = list(line2.coords)
+
+            charges1 = (
+                int(line1[1][0] - line1[0][0]),
+                int(line1[1][1] - line1[0][1])
+            )
+            charges1 = (charges1[0] * multiplicity1, charges1[1] * multiplicity1)
+            charges2 = (
+                int(line2[1][0] - line2[0][0]),
+                int(line2[1][1] - line2[0][1])
+            )
+            charges2 = (charges2[0] * multiplicity2, charges2[1] * multiplicity2)
+
+            determinant = charges1[0] * charges2[1] - charges1[1] * charges2[0]
+            intersection_number += abs(determinant)
+
+        # 7-brane corrections, needs implementation
+        shared_nodes = set(subweb1.nodes()) & set(subweb2.nodes())
+        for node in shared_nodes:
+            if self.web.nodes[node]['type'] != 'seven-brane': continue
+
+            edges1 = list(subweb1.edges(node))
+            edges2 = list(subweb2.edges(node))
+
+            charge_into_node1 = self.charge_into_node(node, edges1[0][1] if edges1[0][0] == node else edges1[0][0])
+            charge_into_node1 = np.array(charge_into_node1)
+
+            charge_into_node2 = self.charge_into_node(node, edges2[0][1] if edges2[0][0] == node else edges2[0][0])
+            charge_into_node2 = np.array(charge_into_node2)
+
+            if np.dot(charge_into_node1, charge_into_node2) > 0:
+                # same direction, subtract
+                intersection_number -= multiplicity1 * multiplicity2
+            else:
+                # opposite direction, add
+                intersection_number += multiplicity1 * multiplicity2
+
+        return intersection_number
+
+    def graph_to_multilinestring(self, graph: nx.MultiGraph, offset=False) -> MultiLineString:
+        '''Converts a NetworkX MultiGraph to a Shapely MultiLineString.'''
+
+        if offset:
+            offset_vec = np.random.rand(2)
+            length = np.linalg.norm(offset_vec)
+            offset_vec = 0.1 * (offset_vec / length)
+        else:
+            offset_vec = np.array([0, 0])
+
+        lines = []
+        for u, v in graph.edges():
+            pos_u = np.array(self.web.nodes[u]['pos']) + offset_vec
+            pos_v = np.array(self.web.nodes[v]['pos']) + offset_vec
+            lines.append([(pos_u[0], pos_u[1]), (pos_v[0], pos_v[1])])
+
+        return MultiLineString(lines)
 
     def find_subweb_decompositions(self, junction: str, draw_subwebs: bool = False) -> list:
         '''
