@@ -31,6 +31,91 @@ class BraneWeb:
         for _ in range(multiplicity):
             self.web.add_edge(start_id, end_id, charge=charge)
 
+    def find_subweb_decompositions(self, junction: str, draw_subwebs: bool = False) -> list:
+        '''
+        Finds all possible subweb decompositions of the brane web.
+
+        A subweb decomposition is defined as a set of subwebs that together
+        reconstruct the original brane web.
+        '''
+
+        minimal_subwebs = self.find_subwebs_across_junction(junction)
+
+        queue = [(self.web, [])] # format: (graph: nx.MultiGraph, decomposition: List[nx.MultiGraph])
+        subweb_decompositions_junction = []
+
+        while queue:
+
+            curr_graph, curr_decomp = queue.pop(0)
+
+            subtraction_done = False
+            for subweb in minimal_subwebs:
+                web_copy = curr_graph.copy()
+                decomp_copy = curr_decomp.copy()
+                all_edges_exist = all(web_copy.has_edge(u, v, key=k) for u, v, k in subweb.web.edges(keys=True))
+
+                # subtracting subweb from web_copy, if exists
+                if not all_edges_exist: continue
+                web_copy.remove_edges_from(subweb.web.edges())
+                subtraction_done = True
+
+                # check if result is already in queue
+                for queue_graph, _ in queue:
+                    if nx.is_isomorphic(web_copy, queue_graph):
+                        break
+                else:
+                    decomp_copy.append(subweb.web)
+                    queue.append((web_copy, decomp_copy))
+
+            if not subtraction_done:
+                subweb_decompositions_junction.append(
+                    (curr_graph, curr_decomp)
+                )
+
+        #if draw_subwebs:
+            #for i, (graph, decomp) in enumerate(subweb_decompositions_junction):
+                #print(f"Decomposition {i+1}:")
+                #graph_web = BraneWeb.from_graph(graph)
+                #graph_web.draw()
+
+                #for j, subweb in enumerate(decomp):
+                    #print(f" Subweb {j+1}:")
+                    #subweb_instance = BraneWeb.from_graph(subweb)
+                    #subweb_instance.draw()
+
+        # check for disconnected subwebs in the remaining graph
+        subweb_decompositions = []
+        for graph, decomp in subweb_decompositions_junction:
+
+            # check it there are further edges
+            if graph.number_of_edges() == 0:
+                subweb_decompositions.append((graph, decomp))
+                continue 
+
+            curr_graph = graph.copy()
+            curr_decomp = decomp.copy()
+
+            for u, v, k in graph.edges(keys=True):
+                edge_subgraph = curr_graph.edge_subgraph([(u, v, k)]).copy()
+                curr_decomp.append(edge_subgraph)
+                curr_graph.remove_edge(u, v, k)
+
+            subweb_decompositions.append((curr_graph, curr_decomp))
+
+        if draw_subwebs:
+            for i, (graph, decomp) in enumerate(subweb_decompositions):
+                print(f"Decomposition {i+1}:")
+                graph_web = BraneWeb.from_graph(graph)
+                graph_web.draw()
+
+                for j, subweb in enumerate(decomp):
+                    print(f" Subweb {j+1}:")
+                    subweb_instance = BraneWeb.from_graph(subweb)
+                    subweb_instance.draw()
+
+        subweb_decompositions = [decomp for _, decomp in subweb_decompositions]
+        return subweb_decompositions
+
     def find_subwebs_across_junction(self, junction: str) -> list:
         '''
         Finds all possible subwebs that can be formed across a junction.
@@ -59,26 +144,20 @@ class BraneWeb:
             if candidate not in unique_candidates:
                 unique_candidates.append(candidate)
 
-        for candidate in unique_candidates:
-            print('candidate = ', candidate)
-        print('len valid candidates = ', len(unique_candidates))
-
         # minimal candiates only
-        unique_candidates_set = sorted([set(candidate) for candidate in unique_candidates])
+        unique_candidates_set = sorted([sorted(candidate) for candidate in unique_candidates])
         minimal_candidates = unique_candidates_set.copy()
 
         for i, s in enumerate(unique_candidates_set):
-
             for j, t in enumerate(unique_candidates_set):
-                if j <= i: continue
+                if j == i: continue
 
-                if s.issubset(t):
-                    print(f'removing candidate {t} as it is not minimal, since it contains {s}')
+                s_issubset = all(item in t for item in s)
+                if s_issubset and s != t and len(s) < len(t):
                     if t in minimal_candidates:
                         minimal_candidates.remove(t)
 
-        print('len minimal candidates = ', len(minimal_candidates))
-
+        # constructing subwebs from data, might not be neccessary
         subwebs = []
         for candidate in minimal_candidates:
             candidate = list(candidate)
@@ -96,7 +175,7 @@ class BraneWeb:
 
             subwebs.append(subweb)
 
-        return subwebs
+        return subwebs # fix: return graphs instead of web..
 
     def conserves_charge(self, branes: list) -> bool:
         '''Checks if a set of branes conserves charge.'''
