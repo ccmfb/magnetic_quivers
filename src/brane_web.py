@@ -210,25 +210,42 @@ class BraneWeb:
 
             if not subtraction_completed and curr_graph.number_of_edges() == 0:
                 decompositions.append(curr_decomp)
+            
 
-        # minimal decompositions only
-        all_subwebs = [] # [(subweb_edges, decomposition_idx),...]
-        for i, decomp in enumerate(decompositions):
-            for subweb in decomp:
-                all_subwebs.append((subweb, i))
+        maximal_decompositions = self.get_maximal_decompositions(decompositions)
+        return maximal_decompositions
+        #return decompositions
 
-        to_remove = set()
-        for i, (subweb1, idx1) in enumerate(all_subwebs):
-            for j, (subweb2, idx2) in enumerate(all_subwebs):
-                if i == j or idx1 == idx2: continue # skip if same subweb or same decomposition
+    def get_maximal_decompositions(self, decompositions):
+        """
+        Filters a list of decompositions to find only the maximal ones.
 
-                subweb1_issubset = all(item in subweb2 for item in subweb1)
-                if subweb1_issubset and len(subweb1) < len(subweb2):
-                    to_remove.add(idx2)
+        A decomposition is not maximal if any of its individual subwebs can be perfectly constructed by joining together
+        two or more subwebs from another decomposition.
+        """
+        print(f'Found {len(decompositions)} decompositions before applying the new rule')
 
-        minimal_decompositions = [decomp for i, decomp in enumerate(decompositions) if i not in to_remove]
+        not_maximal_indices = set()
+        for i, decomposition in enumerate(decompositions):
+            for subweb in decomposition:
 
-        return minimal_decompositions
+                for j, other_decomposition in enumerate(decompositions):
+                    if i == j: continue
+
+                    # Check if subweb can be formed by joining two or more subwebs from other_decomposition
+                    for r in range(2, len(other_decomposition) + 1):
+                        for combination in itertools.combinations(other_decomposition, r):
+                            union = []
+                            for part in combination:
+                                union.extend(part)
+
+                            if collections.Counter(union) == collections.Counter(subweb):   
+                                not_maximal_indices.add(i)
+                                    
+        maximal_decompositions = [decompositions[i] for i in range(len(decompositions)) if i not in not_maximal_indices]
+
+        print(f'Found {len(maximal_decompositions)} maximal decompositions after applying the new rule')
+        return maximal_decompositions
 
     def remove_edges(self, graph: nx.MultiGraph, edges: list) -> nx.MultiGraph:
         '''Removes edges from a graph, taking into account multiplicities.'''
@@ -295,6 +312,9 @@ class BraneWeb:
 
             NS5_charge_junction = NS5_charge_junction // 2
             NS5_charge += NS5_charge_junction
+
+        if NS5_charge == 0:
+            return False
 
         # checking if s-rule is violated
         branes_between = [] # all branes between 7-branes and junctions
