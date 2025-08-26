@@ -244,7 +244,6 @@ class BraneWeb:
                     subweb_instance.draw()
 
         subweb_decompositions = [decomp for _, decomp in subweb_decompositions]
-        subweb_decompositions = self.srule_adjusted_decompositions(subweb_decompositions)
 
         return subweb_decompositions
 
@@ -304,6 +303,9 @@ class BraneWeb:
                 if not self.conserves_charge(comb):
                     continue
 
+                if not self.conserves_srule(comb):
+                    continue
+
                 candidates.append(comb)
         candidates_sorted_inner = [tuple(sorted(candidate)) for candidate in candidates]
         candidates_sorted = sorted(candidates_sorted_inner)
@@ -346,6 +348,20 @@ class BraneWeb:
             subwebs.append(subweb)
 
         return subwebs # fix: return graphs instead of web..
+
+    def conserves_srule(self, branes: list) -> bool:
+        '''Checks if a set of branes conserves the S-rule.'''
+
+        # Checking for duplicates branes
+        brane_counts = collections.Counter(branes)
+
+        for brane, count in brane_counts.items():
+            if count > 1:
+                print('-'*20)
+                print("Subweb:", branes)
+                print("  S-rule violated due to duplicate brane:", brane)
+
+        return True # placeholder, needs implementation
 
     def conserves_charge(self, branes: list) -> bool:
         '''Checks if a set of branes conserves charge.'''
