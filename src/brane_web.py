@@ -172,7 +172,7 @@ class BraneWeb:
 
         return MultiLineString(lines)
 
-    def find_subweb_decompositions(self, junction: str, draw_subwebs: bool = False) -> list:
+    def subweb_decompositions(self) -> list:
         '''
         Finds all possible subweb decompositions of the brane web.
 
@@ -180,201 +180,214 @@ class BraneWeb:
         reconstruct the original brane web.
         '''
 
-        minimal_subwebs = self.find_subwebs_across_junction(junction)
+        subwebs = self.subwebs()
+        queue = [(self.web, [])] # format: (graph: nx.MultiGraph, decomposition: List[List of edges])
 
-        queue = [(self.web, [])] # format: (graph: nx.MultiGraph, decomposition: List[nx.MultiGraph])
-        subweb_decompositions_junction = []
-
+        decompositions = []
         while queue:
-
             curr_graph, curr_decomp = queue.pop(0)
 
-            subtraction_done = False
-            for subweb in minimal_subwebs:
-                web_copy = curr_graph.copy()
-                decomp_copy = curr_decomp.copy()
-                all_edges_exist = all(web_copy.has_edge(u, v, key=k) for u, v, k in subweb.web.edges(keys=True))
+            subtraction_completed = False
+            for subweb in subwebs:
+                new_graph = curr_graph.copy()
+                new_decomp = curr_decomp.copy()
 
-                # subtracting subweb from web_copy, if exists
-                if not all_edges_exist: continue
-                web_copy.remove_edges_from(subweb.web.edges())
-                subtraction_done = True
+                edges_count = collections.Counter(new_graph.edges())
+                required_edges_count = collections.Counter(subweb)
 
-                # check if result is already in queue
-                for queue_graph, _ in queue:
-                    if nx.is_isomorphic(web_copy, queue_graph):
+                if not all(edges_count[edge] >= required_edges_count[edge] for edge in required_edges_count): continue
+
+                new_graph = self.remove_edges(new_graph, subweb)
+                new_decomp.append(subweb)
+                subtraction_completed = True
+
+
+                for g, d in queue:
+                    if nx.is_isomorphic(new_graph, g) and all(any(collections.Counter(s) == collections.Counter(t) for t in d) for s in new_decomp):
                         break
                 else:
-                    decomp_copy.append(subweb.web)
-                    queue.append((web_copy, decomp_copy))
+                    queue.append((new_graph, new_decomp))
 
-            if not subtraction_done:
-                subweb_decompositions_junction.append(
-                    (curr_graph, curr_decomp)
-                )
+            if not subtraction_completed and curr_graph.number_of_edges() == 0:
+                decompositions.append(curr_decomp)
+            
 
-        # check for disconnected subwebs in the remaining graph
-        subweb_decompositions = []
-        for graph, decomp in subweb_decompositions_junction:
+        maximal_decompositions = self.get_maximal_decompositions(decompositions)
+        return maximal_decompositions
+        #return decompositions
 
-            # check it there are further edges
-            if graph.number_of_edges() == 0:
-                subweb_decompositions.append((graph, decomp))
-                continue 
+    def get_maximal_decompositions(self, decompositions):
+        """
+        Filters a list of decompositions to find only the maximal ones.
 
-            curr_graph = graph.copy()
-            curr_decomp = decomp.copy()
+        A decomposition is not maximal if any of its individual subwebs can be perfectly constructed by joining together
+        two or more subwebs from another decomposition.
+        """
+        print(f'Found {len(decompositions)} decompositions before applying the new rule')
 
-            for u, v, k in graph.edges(keys=True):
-                edge_subgraph = curr_graph.edge_subgraph([(u, v, k)]).copy()
-                curr_decomp.append(edge_subgraph)
-                curr_graph.remove_edge(u, v, k)
+        not_maximal_indices = set()
+        for i, decomposition in enumerate(decompositions):
+            for subweb in decomposition:
 
-            subweb_decompositions.append((curr_graph, curr_decomp))
+                for j, other_decomposition in enumerate(decompositions):
+                    if i == j: continue
 
-        if draw_subwebs:
-            for i, (graph, decomp) in enumerate(subweb_decompositions):
-                print(f"Decomposition {i+1}:")
-                graph_web = BraneWeb.from_graph(graph)
-                graph_web.draw()
+                    # Check if subweb can be formed by joining two or more subwebs from other_decomposition
+                    for r in range(2, len(other_decomposition) + 1):
+                        for combination in itertools.combinations(other_decomposition, r):
+                            union = []
+                            for part in combination:
+                                union.extend(part)
 
-                for j, subweb in enumerate(decomp):
-                    print(f" Subweb {j+1}:")
-                    subweb_instance = BraneWeb.from_graph(subweb)
-                    subweb_instance.draw()
+                            if collections.Counter(union) == collections.Counter(subweb):   
+                                not_maximal_indices.add(i)
+                                    
+        maximal_decompositions = [decompositions[i] for i in range(len(decompositions)) if i not in not_maximal_indices]
 
-        subweb_decompositions = [decomp for _, decomp in subweb_decompositions]
+        print(f'Found {len(maximal_decompositions)} maximal decompositions after applying the new rule')
+        return maximal_decompositions
 
-        return subweb_decompositions
+    def remove_edges(self, graph: nx.MultiGraph, edges: list) -> nx.MultiGraph:
+        '''Removes edges from a graph, taking into account multiplicities.'''
+        new_graph = graph.copy()
 
-    def srule_adjusted_decompositions(self, decompositions: list) -> list:
-        '''
-        Adjusts decompositions according to the S-rule.
-        
-        The S-rule states that no two branes can end on the same 7-brane and NS5-brane.
-        '''
+        edges_count = collections.Counter(new_graph.edges())
+        edges_to_remove_count = collections.Counter(edges)
 
-        # Check if s-rule is violated in any decomposition
-        for decomp in decompositions:
-            for subweb in decomp:
-                print("Subweb:", subweb.edges())
+        for edge, count in edges_to_remove_count.items():
+            if edges_count[edge] < count:
+                raise ValueError(f"Cannot remove {count} instances of edge {edge}, only {edges_count[edge]} exist.")
 
-                NS5_charge = 0
-                D5_charge = 0 # not actual D5 charge, just for info
-                for edge in subweb.edges(data=True):
-                    NS5_charge += abs(edge[2]['charge'][1])
-                    D5_charge += abs(edge[2]['charge'][0])
-                NS5_charge = NS5_charge // 2 
-                print("  NS5 charge:", NS5_charge)
+            # keys
+            keys = list(new_graph[edge[0]][edge[1]].keys())
+            for key in keys[:count]:
+                new_graph.remove_edge(edge[0], edge[1], key=key)
 
-                nodes_from_edges = []
-                for u, v in subweb.edges():
-                    nodes_from_edges.append(u)
-                    nodes_from_edges.append(v)
+        return new_graph
 
-                nodes_counts = collections.Counter(nodes_from_edges)
-                print("  Nodes:", nodes_counts)
+    def subwebs(self) -> list:
+        '''Finds all possible and valid subwebs of the brane web.'''
 
-                for node, count in nodes_counts.items():
-                    if self.web.nodes[node]['type'] != 'seven-brane': continue
-
-                    if count > NS5_charge and D5_charge > 0 and NS5_charge > 0:
-                        print("  S-rule violated at node", node, "with count", count, "and NS5 charge", NS5_charge)
-
-            print("-----")
-
-        return decompositions # placeholder, needs implementation
-
-    def find_subwebs_across_junction(self, junction: str) -> list:
-        '''
-        Finds all possible subwebs that can be formed across a junction.
-
-        A subweb across a junction is defined as a set of branes connected to the junction
-        that conserves charge.
-        '''
-
-        branes_at_junction = list(self.web.edges(junction)) # in the formate (junction, x)
+        branes = list(self.web.edges())
 
         candidates = []
-        for r in range(1, len(branes_at_junction)+1):
-            combs_of_size_r = itertools.combinations(branes_at_junction, r)
+        for r in range(1, len(branes)+1):
+            combinations_of_size_r = itertools.combinations(branes, r)
 
-            for comb in combs_of_size_r:
-                if not self.conserves_charge(comb):
-                    continue
+            for combination in combinations_of_size_r:
+                current_graph = nx.MultiGraph(combination)
 
-                if not self.conserves_srule(comb):
-                    continue
+                if not nx.is_connected(current_graph): continue
+                if not self.conserves_charge(combination): continue
+                if combination in candidates: continue
+                if self.violates_srule(combination, current_graph): continue
 
-                candidates.append(comb)
-        candidates_sorted_inner = [tuple(sorted(candidate)) for candidate in candidates]
-        candidates_sorted = sorted(candidates_sorted_inner)
+                candidates.append(combination)
+            
+        return candidates 
 
-        # removing duplicates
-        unique_candidates = []
-        for candidate in candidates_sorted:
-            if candidate not in unique_candidates:
-                unique_candidates.append(candidate)
+    def violates_srule(self, branes: list, subweb: nx.MultiGraph) -> bool:
+        '''Checks if a set of branes violates the S-rule.'''
 
-        # minimal candiates only
-        unique_candidates_set = sorted([sorted(candidate) for candidate in unique_candidates])
-        minimal_candidates = unique_candidates_set.copy()
+        # extracting junctions from branes
+        junctions = set()
+        for u, v in branes:
+            if self.web.nodes[u]['type'] == 'junction':
+                junctions.add(u)
+            if self.web.nodes[v]['type'] == 'junction':
+                junctions.add(v)
 
-        for i, s in enumerate(unique_candidates_set):
-            for j, t in enumerate(unique_candidates_set):
-                if j == i: continue
+        # computing total NS5 charge of subweb, this assumes no 7-branes in between junctions!!!
+        NS5_charge = 0
+        for junction in junctions:
+            branes_at_junction = [brane for brane in branes if junction in brane]
+            NS5_charge_junction = 0
 
-                s_issubset = all(item in t for item in s)
-                if s_issubset and s != t and len(s) < len(t):
-                    if t in minimal_candidates:
-                        minimal_candidates.remove(t)
+            for brane in branes_at_junction:
+                u, v = brane
+                other_node = v if u == junction else u
+                charge_into_junction = self.charge_into_node(junction, other_node)
 
-        # constructing subwebs from data, might not be neccessary
-        subwebs = []
-        for candidate in minimal_candidates:
-            candidate = list(candidate)
-            brane_counts = collections.Counter(candidate)
+                NS5_charge_junction += abs(charge_into_junction[1])
 
-            upd_candidate = []
-            for (u, v), count in brane_counts.items():
-                for i in range(count):
-                    upd_candidate.append(
-                        (u, v, i)
-                    )
+            NS5_charge_junction = NS5_charge_junction // 2
+            NS5_charge += NS5_charge_junction
 
-            subweb_graph = self.web.edge_subgraph(upd_candidate).copy()
-            subweb = BraneWeb.from_graph(subweb_graph)
+        if NS5_charge == 0:
+            return False
 
-            subwebs.append(subweb)
+        # checking if s-rule is violated
+        branes_between = [] # all branes between 7-branes and junctions
+        for u, v in branes:
+            if self.web.nodes[u]['type'] == 'seven-brane' and self.web.nodes[v]['type'] == 'junction':
+                branes_between.append((u, v))
+            if self.web.nodes[v]['type'] == 'seven-brane' and self.web.nodes[u]['type'] == 'junction':
+                branes_between.append((v, u))
 
-        return subwebs # fix: return graphs instead of web..
+        brane_counts = collections.Counter(branes_between)
+        for (u, v), count in brane_counts.items():
+            excess = count - NS5_charge
+            if excess <= 0: continue
 
-    def conserves_srule(self, branes: list) -> bool:
-        '''Checks if a set of branes conserves the S-rule.'''
+            if not self.extension_exists(subweb ,(u, v), excess, NS5_charge):
+                return True
 
-        # Checking for duplicates branes
-        brane_counts = collections.Counter(branes)
+        return False
 
-        for brane, count in brane_counts.items():
-            if count > 1:
-                print('-'*20)
-                print("Subweb:", branes)
-                print("  S-rule violated due to duplicate brane:", brane)
+    def extension_exists(self, subweb: nx.MultiGraph, brane: tuple, excess: int, NS5_charge: int) -> bool:
+        '''
+        Checks if branes extend over 7-branes to satisfy the S-rule.
 
-        return True # placeholder, needs implementation
+        brane: (7-brane to extend over, junction/7-brane) IMPORTANT!
+        '''
+
+        seven_brane, other = brane
+
+        possible_extensions = list(subweb.edges(seven_brane))
+        possible_extensions = [edge for edge in possible_extensions if edge[1] != other]
+        possible_extensions_counts = collections.Counter(possible_extensions)
+
+        extension = None
+        for (u, v), count in possible_extensions_counts.items():
+            if count >= excess:
+                extension = (v, u)
+                new_excess = excess - NS5_charge
+                break
+        else:
+            return False
+
+        if new_excess <= 0:
+            return True 
+        
+        return self.extension_exists(subweb, extension, new_excess, NS5_charge)
 
     def conserves_charge(self, branes: list) -> bool:
-        '''Checks if a set of branes conserves charge.'''
-        total_charge = [0, 0]
+        '''Checks if a set of branes conserves charge at each junction.'''
 
-        for brane in branes:
-            u, x = brane
-            charge_into_u = self.charge_into_node(u, x)
+        # extracting junctions from branes
+        junctions = set()
+        for u, v in branes:
+            if self.web.nodes[u]['type'] == 'junction':
+                junctions.add(u)
+            if self.web.nodes[v]['type'] == 'junction':
+                junctions.add(v)
 
-            total_charge[0] += charge_into_u[0]
-            total_charge[1] += charge_into_u[1]
+        for junction in junctions:
+            branes_at_junction = [brane for brane in branes if junction in brane]
+            total_charge = [0, 0]
 
-        return total_charge == [0, 0]
+            for brane in branes_at_junction:
+                u, v = brane
+                other_node = v if u == junction else u
+                charge_into_junction = self.charge_into_node(junction, other_node)
+
+                total_charge[0] += charge_into_junction[0]
+                total_charge[1] += charge_into_junction[1]
+
+            if total_charge != [0, 0]:
+                return False
+            
+        return True
 
     def charge_into_node(self, node: str, other_node: str) -> tuple:
         '''Calculates the charge vector pointing into a node from another node.'''
@@ -392,7 +405,7 @@ class BraneWeb:
 
     def draw(self, save_path: str = None):
         '''Visualises the brane web.'''
-        fig, ax = plt.subplots(figsize=(10, 8), dpi=300)
+        fig, ax = plt.subplots(figsize=(6, 4), dpi=150)
 
         pos = nx.get_node_attributes(self.web, 'pos')
 
@@ -477,6 +490,18 @@ class BraneWeb:
         brane_web.web = graph
         return brane_web
 
+    @classmethod
+    def from_subgraph_edges(cls, graph: nx.MultiGraph, edges: list):
+        '''Creates a BraneWeb instance from a subgraph defined by a list of edges in the original graph.'''
 
+        edges_counter = collections.Counter(edges)
+
+        upd_edges = []
+        for (u, v), count in edges_counter.items():
+            for i in range(count):
+                upd_edges.append((u, v, i))
+        
+        subgraph = graph.edge_subgraph(upd_edges).copy()
+        return cls.from_graph(subgraph)
 
 
