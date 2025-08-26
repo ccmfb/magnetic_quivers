@@ -405,7 +405,7 @@ class BraneWeb:
 
     def draw(self, save_path: str = None):
         '''Visualises the brane web.'''
-        fig, ax = plt.subplots(figsize=(10, 8), dpi=300)
+        fig, ax = plt.subplots(figsize=(6, 4), dpi=150)
 
         pos = nx.get_node_attributes(self.web, 'pos')
 

@@ -11,3 +11,10 @@ Some things I imagine could be added as well
 - finding possible subwebs
 - subweb decomposition -> magnetic quiver
 - read global symmetry from magnetic quiver
+
+
+
+
+
+
+Possible optimisations: ending branes on the proper 7-branes not just at the next one to come.... not entirely sure if this makes things easier or not, in some ways definitely easier...
