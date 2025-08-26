@@ -285,6 +285,94 @@ class BraneWeb:
 
         return decompositions # placeholder, needs implementation
 
+    def subwebs_from_junction(self, junction: str) -> list:
+        '''Finds all possible subwebs that can be formed across a junction.'''
+        
+        branes_at_junction = list(self.web.edges(junction)) # in the formate (junction, x)
+
+        # Looking at all combinations of branes at the junction, and sorting out those that don't conserve charge
+        candidates = []
+        for r in range(1, len(branes_at_junction)+1):
+            combinations_of_size_r = itertools.combinations(branes_at_junction, r)
+
+            for combination in combinations_of_size_r:
+                if not self.conserves_charge(combination) or combination in candidates:
+                    continue
+
+                candidates.append(combination)
+
+        # S-rule check and extending subwebs if possible
+        srule_candidates = []
+        for candidate in candidates:
+            print("Candidate:", candidate)
+            
+            # computes the NS5 charge at the junction
+            NS5_charge_junction = 0
+            for u, v in candidate:
+                charge_into_junction = self.charge_into_node(junction, v)
+                NS5_charge_junction += abs(charge_into_junction[1])
+
+            NS5_charge_junction = NS5_charge_junction // 2
+
+            # checking S-rule
+            srule_violated_by = []
+            brane_counts = collections.Counter(candidate)
+            for (u, v), count in brane_counts.items():
+                if not count > NS5_charge_junction: continue
+                if self.web.nodes[v]['type'] != 'seven-brane': continue
+
+                srule_violated_by.append((u, v, count))
+
+            if not srule_violated_by: # S-rule not violated
+                srule_candidates.append(candidate)
+                continue
+
+            # extending subweb if possible, needs improvement for long legs
+            print(srule_violated_by)
+            subweb_extendable = False
+            extended_subweb = list(candidate)
+            for u, v, count in srule_violated_by:
+                possible_extensions = list(self.web.edges(v))
+                number_of_extensions = count - NS5_charge_junction
+                
+                for extension in possible_extensions:
+                    if number_of_extensions == 0: break
+                    if self.web.nodes[extension[1]]['type'] != 'seven-brane': continue
+
+                    extended_subweb.append(extension)
+                    number_of_extensions -= 1
+
+                if number_of_extensions == 0:
+                    subweb_extendable = True
+
+            if subweb_extendable:
+                srule_candidates.append(tuple(extended_subweb))
+
+        for candidate in srule_candidates:
+            print("S-rule candidate:", candidate)
+
+        
+
+
+
+
+
+
+
+
+
+
+
+
+            
+
+
+
+
+
+
+        return None
+
     def find_subwebs_across_junction(self, junction: str) -> list:
         '''
         Finds all possible subwebs that can be formed across a junction.
@@ -348,20 +436,6 @@ class BraneWeb:
             subwebs.append(subweb)
 
         return subwebs # fix: return graphs instead of web..
-
-    def conserves_srule(self, branes: list) -> bool:
-        '''Checks if a set of branes conserves the S-rule.'''
-
-        # Checking for duplicates branes
-        brane_counts = collections.Counter(branes)
-
-        for brane, count in brane_counts.items():
-            if count > 1:
-                print('-'*20)
-                print("Subweb:", branes)
-                print("  S-rule violated due to duplicate brane:", brane)
-
-        return True # placeholder, needs implementation
 
     def conserves_charge(self, branes: list) -> bool:
         '''Checks if a set of branes conserves charge.'''
