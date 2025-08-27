@@ -172,6 +172,34 @@ class BraneWeb:
 
         return MultiLineString(lines)
 
+    def subweb_decompositions_brute_force(self) -> list:
+        '''
+        Generates all possible subweb combinations and filters them to find valid decompositions.
+        '''
+
+        subwebs = self.subwebs()
+        print(f'Found {len(subwebs)} valid subwebs')
+
+        decompositions = []
+        for r in range(1, len(subwebs)+1):
+            combinations_of_size_r = itertools.combinations(subwebs, r)
+
+            for combination in combinations_of_size_r:
+                combined_edges = []
+                for subweb in combination:
+                    combined_edges.extend(subweb)
+
+                combined_graph = nx.MultiGraph(combined_edges)
+                if not nx.is_isomorphic(self.web, combined_graph): continue
+
+                decompositions.append(combination)
+
+        print('Found', len(decompositions), 'decompositions')
+        decompositions = self.get_maximal_decompositions(decompositions)
+        print('Found', len(decompositions), 'maximal decompositions')
+        return decompositions
+
+
     def subweb_decompositions(self) -> list:
         '''
         Finds all possible subweb decompositions of the brane web.
@@ -181,6 +209,7 @@ class BraneWeb:
         '''
 
         subwebs = self.subwebs()
+        print(f'Found {len(subwebs)} valid subwebs')
         queue = [(self.web, [])] # format: (graph: nx.MultiGraph, decomposition: List[List of edges])
 
         decompositions = []
@@ -216,15 +245,51 @@ class BraneWeb:
         return maximal_decompositions
         #return decompositions
 
-    def get_maximal_decompositions(self, decompositions):
+    def get_maximal_decompositions(self, decompositions: list) -> list:
         """
         Filters a list of decompositions to find only the maximal ones.
 
-        A decomposition is not maximal if any of its individual subwebs can be perfectly constructed by joining together
-        two or more subwebs from another decomposition.
+        For each decomposition, choose r subwebs to combine. The new combination with the remaining subwebs in the decomposition
+        now forms a new decomposition. If this new decomposition exists in the list of decompositions, then that decomposition
+        is not maximal.
         """
-        print(f'Found {len(decompositions)} decompositions before applying the new rule')
 
+        'VIBE CODED THIS, might need reworking but seems to work fine...'
+        not_maximal_indices = set()
+        for i, decomposition in enumerate(decompositions):
+            for r in range(2, len(decomposition) + 1):
+                for combination in itertools.combinations(decomposition, r):
+                    union = []
+                    for part in combination:
+                        union.extend(part)
+
+                    remaining_subwebs = [subweb for subweb in decomposition if subweb not in combination]
+                    new_decomposition = [tuple(sorted(union))] + list(remaining_subwebs)
+                    new_decomposition = [tuple(sorted(subweb)) for subweb in new_decomposition]
+                    new_decomposition = sorted(new_decomposition, key=lambda x: (len(x), x))
+
+                    for j, other_decomposition in enumerate(decompositions):
+                        if i == j: continue
+
+                        other_decomposition_sorted = [tuple(sorted(subweb)) for subweb in other_decomposition]
+                        other_decomposition_sorted = sorted(other_decomposition_sorted, key=lambda x: (len(x), x))
+
+                        if new_decomposition == other_decomposition_sorted:
+                            not_maximal_indices.add(i)
+                            break
+                    else:
+                        continue
+                    break
+                else:
+                    continue
+                break
+                                    
+        maximal_decompositions = [decompositions[i] for i in range(len(decompositions)) if i not in not_maximal_indices]
+
+        return maximal_decompositions
+
+
+    def get_maximal_decompositions_old(self, decompositions):
         not_maximal_indices = set()
         for i, decomposition in enumerate(decompositions):
             for subweb in decomposition:
@@ -244,7 +309,6 @@ class BraneWeb:
                                     
         maximal_decompositions = [decompositions[i] for i in range(len(decompositions)) if i not in not_maximal_indices]
 
-        print(f'Found {len(maximal_decompositions)} maximal decompositions after applying the new rule')
         return maximal_decompositions
 
     def remove_edges(self, graph: nx.MultiGraph, edges: list) -> nx.MultiGraph:
@@ -282,12 +346,18 @@ class BraneWeb:
                 if combination in candidates: continue
                 if self.violates_srule(combination, current_graph): continue
 
+                if not self.subweb_is_minimal(combination): continue
+
                 candidates.append(combination)
             
         return candidates 
 
-    def violates_srule(self, branes: list, subweb: nx.MultiGraph) -> bool:
-        '''Checks if a set of branes violates the S-rule.'''
+    def subweb_is_minimal(self, branes: list) -> bool:
+        '''
+        If these checks fail, the subweb is definitely not minimal. But the reverse is not necessarily true.
+        
+        Shares a lot of code with violates_srule, could be refactored... but would make it less clear.
+        '''
 
         # extracting junctions from branes
         junctions = set()
@@ -297,6 +367,19 @@ class BraneWeb:
             if self.web.nodes[v]['type'] == 'junction':
                 junctions.add(v)
 
+        # extracting branes between two 7-branes
+        seven_seven_branes = []
+        for u, v in branes:
+            if self.web.nodes[u]['type'] == 'seven-brane' and self.web.nodes[v]['type'] == 'seven-brane':
+                seven_seven_branes.append((u, v))
+        seven_seven_branes_counts = collections.Counter(seven_seven_branes)
+
+        if len(junctions) == 0 and len(seven_seven_branes_counts) > 1:
+            return False
+
+        if len(junctions) == 0 and len(seven_seven_branes_counts) == 1:
+            return True
+        
         # computing total NS5 charge of subweb, this assumes no 7-branes in between junctions!!!
         NS5_charge = 0
         for junction in junctions:
@@ -312,6 +395,158 @@ class BraneWeb:
 
             NS5_charge_junction = NS5_charge_junction // 2
             NS5_charge += NS5_charge_junction
+
+        if NS5_charge == 0 and len(seven_seven_branes_counts) > 0:
+            return False
+        if NS5_charge == 0:
+            return True
+
+        branes_between = [] # all branes between 7-branes and junctions
+        for u, v in branes:
+            if self.web.nodes[u]['type'] == 'seven-brane' and self.web.nodes[v]['type'] == 'junction':
+                branes_between.append((u, v))
+            if self.web.nodes[v]['type'] == 'seven-brane' and self.web.nodes[u]['type'] == 'junction':
+                branes_between.append((v, u))
+
+        brane_counts = collections.Counter(branes_between)
+        for (u, v), count in brane_counts.items():
+            q, r = divmod(count, NS5_charge)
+            seven_seven_branes_needed = q*count + r - (1/2) * NS5_charge * q * (q+1)
+
+            if seven_seven_branes_needed < len(seven_seven_branes):
+                return False
+        
+        return True
+
+    def violates_srule(self, branes: list, subweb: nx.MultiGraph) -> bool:
+        '''
+        Checks if a set of branes violates the S-rule in an SL(2,Z) invariant way.
+        '''
+
+        web = BraneWeb.from_subgraph_edges(self.web, branes)
+        web.draw()
+
+        # extracting junctions from branes
+        junctions = set()
+        for u, v in branes:
+            if self.web.nodes[u]['type'] == 'junction':
+                junctions.add(u)
+            if self.web.nodes[v]['type'] == 'junction':
+                junctions.add(v)
+        
+        if not junctions:
+            print('No junctions, no S-rule violation')
+            return False
+
+        seven_junction_branes = []
+        for u, v in branes:
+            if self.web.nodes[u]['type'] == 'seven-brane' and self.web.nodes[v]['type'] == 'junction':
+                seven_junction_branes.append((u, v))
+            if self.web.nodes[v]['type'] == 'seven-brane' and self.web.nodes[u]['type'] == 'junction':
+                seven_junction_branes.append((v, u))
+
+        for i, (u, v) in enumerate(seven_junction_branes):
+            p, q = self.web[u][v][0]['charge']
+            charge = np.array([p, q])
+
+            a, b = self.extended_gcd(p, q)
+
+            sl2z_matrix = np.array([[a, b], [-q, p]])
+            new_charge = sl2z_matrix @ charge
+
+            NS5_charge = 0
+            for j, (w, z) in enumerate(seven_junction_branes):
+                if i == j: continue
+
+                charge2 = np.array(self.web[w][z][0]['charge'])
+                new_charge2 = sl2z_matrix @ charge2
+
+                NS5_charge += abs(new_charge2[1])
+            NS5_charge = NS5_charge // 2
+
+            if NS5_charge == 0:
+                print('No NS5 charge, no S-rule violation')
+                return False
+
+        brane_counts = collections.Counter(seven_junction_branes)
+        for (u, v), count in brane_counts.items():
+            excess = count - NS5_charge
+            if excess <= 0: continue
+
+            if not self.extension_exists(subweb ,(u, v), excess, NS5_charge):
+                print('S-rule violated')
+                return True
+
+        print('passed all checks, no S-rule violation') 
+        return False
+
+    def extended_gcd(self, p, q):
+        """
+        Returns a tuple (gcd, a, b) such that a*p + b*q = gcd.
+        This is an iterative implementation of the Extended Euclidean Algorithm.
+        """
+        if p == 0:
+            return (0, 1)
+        
+        # Initialize variables for the algorithm
+        old_r, r = p, q
+        old_s, s = 1, 0
+        old_t, t = 0, 1
+        
+        while r != 0:
+            quotient = old_r // r
+            
+            # Update r (remainder)
+            old_r, r = r, old_r - quotient * r
+            
+            # Update s (coefficient for p)
+            old_s, s = s, old_s - quotient * s
+            
+            # Update t (coefficient for q)
+            old_t, t = t, old_t - quotient * t
+            
+        # gcd is old_r, and coefficients are old_s and old_t
+
+        return old_s, old_t
+
+    def violates_srule_old(self, branes: list, subweb: nx.MultiGraph) -> bool:
+        '''
+        Checks if a set of branes violates the S-rule.
+
+        This is a terrible way to implemnt the S-rule.
+        '''
+
+        # extracting junctions from branes
+        junctions = set()
+        for u, v in branes:
+            if self.web.nodes[u]['type'] == 'junction':
+                junctions.add(u)
+            if self.web.nodes[v]['type'] == 'junction':
+                junctions.add(v)
+
+        if not junctions:
+            return False
+
+        # computing total NS5 charge of subweb, this assumes no 7-branes in between junctions!!!
+        NS5_charge = 0
+        D5_charge = 0
+        for junction in junctions:
+            branes_at_junction = [brane for brane in branes if junction in brane]
+            NS5_charge_junction = 0
+            D5_charge_junction = 0
+
+            for brane in branes_at_junction:
+                u, v = brane
+                other_node = v if u == junction else u
+                charge_into_junction = self.charge_into_node(junction, other_node)
+
+                NS5_charge_junction += abs(charge_into_junction[1])
+                D5_charge_junction += abs(charge_into_junction[0])
+
+            NS5_charge_junction = NS5_charge_junction // 2
+            D5_charge_junction = D5_charge_junction // 2
+            NS5_charge += NS5_charge_junction
+            D5_charge += D5_charge_junction
 
         if NS5_charge == 0:
             return False
