@@ -329,7 +329,7 @@ class BraneWeb:
 
         return new_graph
 
-    def subwebs(self) -> list:
+    def subwebs(self, debugging: bool = False) -> list:
         '''Finds all possible and valid subwebs of the brane web.'''
 
         branes = list(self.web.edges())
@@ -344,7 +344,7 @@ class BraneWeb:
                 if not nx.is_connected(current_graph): continue
                 if not self.conserves_charge(combination): continue
                 if combination in candidates: continue
-                if self.violates_srule(combination, current_graph): continue
+                if self.violates_srule(combination, current_graph, debugging=debugging): continue
 
                 if not self.subweb_is_minimal(combination): continue
 
@@ -418,13 +418,14 @@ class BraneWeb:
         
         return True
 
-    def violates_srule(self, branes: list, subweb: nx.MultiGraph) -> bool:
+    def violates_srule(self, branes: list, subweb: nx.MultiGraph, debugging: bool = False) -> bool:
         '''
         Checks if a set of branes violates the S-rule in an SL(2,Z) invariant way.
         '''
 
-        web = BraneWeb.from_subgraph_edges(self.web, branes)
-        web.draw()
+        if debugging:
+            web = BraneWeb.from_subgraph_edges(self.web, branes)
+            web.draw()
 
         # extracting junctions from branes
         junctions = set()
@@ -435,7 +436,8 @@ class BraneWeb:
                 junctions.add(v)
         
         if not junctions:
-            print('No junctions, no S-rule violation')
+            if debugging: print('No junctions, no S-rule violation')
+
             return False
 
         seven_junction_branes = []
@@ -465,7 +467,7 @@ class BraneWeb:
             NS5_charge = NS5_charge // 2
 
             if NS5_charge == 0:
-                print('No NS5 charge, no S-rule violation')
+                if debugging: print('No NS5 charge, no S-rule violation')
                 return False
 
         brane_counts = collections.Counter(seven_junction_branes)
@@ -474,10 +476,10 @@ class BraneWeb:
             if excess <= 0: continue
 
             if not self.extension_exists(subweb ,(u, v), excess, NS5_charge):
-                print('S-rule violated')
+                if debugging: print('S-rule violated')
                 return True
 
-        print('passed all checks, no S-rule violation') 
+        if debugging: print('passed all checks, no S-rule violation') 
         return False
 
     def extended_gcd(self, p, q):
