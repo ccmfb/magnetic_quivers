@@ -353,6 +353,33 @@ class BraneWeb:
         return candidates 
 
     def subweb_is_minimal(self, branes: list) -> bool:
+        '''Checks if a subweb is minimal.'''
+
+        seven_junction_branes = [] # [(7-brane, junction)]
+        for u, v in branes:
+            if self.web.nodes[u]['type'] == 'seven-brane' and self.web.nodes[v]['type'] == 'junction':
+                seven_junction_branes.append((u, v))
+            if self.web.nodes[v]['type'] == 'seven-brane' and self.web.nodes[u]['type'] == 'junction':
+                seven_junction_branes.append((v, u))
+
+        seven_junction_branes_counts = collections.Counter(seven_junction_branes)
+        for (u, v), count in seven_junction_branes_counts.items():
+            if self.number_of_extensions((u, v)) < count - 1:
+                return False
+
+
+    def number_of_extensions(self, brane: tuple) -> int:
+        '''Checks if a brane has an extension over a 7-brane.'''
+        seven_brane, other = brane
+
+        possible_extensions = list(self.web.edges(seven_brane))
+        possible_extensions = [edge for edge in possible_extensions if edge[1] != other]
+
+        return len(possible_extensions)
+        
+
+
+    def subweb_is_minimal_old(self, branes: list) -> bool:
         '''
         If these checks fail, the subweb is definitely not minimal. But the reverse is not necessarily true.
         
@@ -410,6 +437,7 @@ class BraneWeb:
 
         brane_counts = collections.Counter(branes_between)
         for (u, v), count in brane_counts.items():
+            if count == 1: continue
             q, r = divmod(count, NS5_charge)
             seven_seven_branes_needed = q*count + r - (1/2) * NS5_charge * q * (q+1)
 
@@ -440,25 +468,27 @@ class BraneWeb:
 
             return False
 
-        seven_junction_branes = []
+        seven_junction_branes = [] # [(7-brane, junction)]
         for u, v in branes:
             if self.web.nodes[u]['type'] == 'seven-brane' and self.web.nodes[v]['type'] == 'junction':
                 seven_junction_branes.append((u, v))
             if self.web.nodes[v]['type'] == 'seven-brane' and self.web.nodes[u]['type'] == 'junction':
                 seven_junction_branes.append((v, u))
 
-        for i, (u, v) in enumerate(seven_junction_branes):
-            p, q = self.web[u][v][0]['charge']
-            charge = np.array([p, q])
+        seven_junction_branes_counts = collections.Counter(seven_junction_branes)
+        for (u, v), count in seven_junction_branes_counts.items():
+            if count == 1: continue
 
-            a, b = self.extended_gcd(p, q)
+            charge = np.array(self.web[u][v][0]['charge'])
+            a, b = self.extended_gcd(charge[0], charge[1])
 
-            sl2z_matrix = np.array([[a, b], [-q, p]])
+            sl2z_matrix = np.array([[a, b], [-charge[1], charge[0]]])
             new_charge = sl2z_matrix @ charge
 
             NS5_charge = 0
             for j, (w, z) in enumerate(seven_junction_branes):
-                if i == j: continue
+                if (u, v) == (w, z): continue
+                if (u, v) == (z, w): continue
 
                 charge2 = np.array(self.web[w][z][0]['charge'])
                 new_charge2 = sl2z_matrix @ charge2
@@ -470,17 +500,18 @@ class BraneWeb:
                 if debugging: print('No NS5 charge, no S-rule violation')
                 return False
 
-        brane_counts = collections.Counter(seven_junction_branes)
-        for (u, v), count in brane_counts.items():
             excess = count - NS5_charge
             if excess <= 0: continue
 
             if not self.extension_exists(subweb ,(u, v), excess, NS5_charge):
                 if debugging: print('S-rule violated')
                 return True
+            
+        if debugging: print('passed all checks')
 
-        if debugging: print('passed all checks, no S-rule violation') 
         return False
+
+
 
     def extended_gcd(self, p, q):
         """
