@@ -200,43 +200,45 @@ class BraneWeb:
         return decompositions
 
     def get_maximal_decompositions(self, decompositions: list) -> list:
-        """
+        '''
         Filters a list of decompositions to find only the maximal ones.
 
         For each decomposition, choose r subwebs to combine. The new combination with the remaining subwebs in the decomposition
         now forms a new decomposition. If this new decomposition exists in the list of decompositions, then that decomposition
         is not maximal.
-        """
+        '''
 
-        'VIBE CODED THIS, might need reworking but seems to work fine...'
         not_maximal_indices = set()
         for i, decomposition in enumerate(decompositions):
             for r in range(2, len(decomposition) + 1):
                 for combination in itertools.combinations(decomposition, r):
+
                     union = []
                     for part in combination:
                         union.extend(part)
 
-                    remaining_subwebs = [subweb for subweb in decomposition if subweb not in combination]
-                    new_decomposition = [tuple(sorted(union))] + list(remaining_subwebs)
-                    new_decomposition = [tuple(sorted(subweb)) for subweb in new_decomposition]
-                    new_decomposition = sorted(new_decomposition, key=lambda x: (len(x), x))
+                    union_web = BraneWeb.from_subgraph_edges(self.web, union)
+
+                    updated_decomposition_webs = [BraneWeb.from_subgraph_edges(self.web, subweb) for subweb in decomposition if subweb not in combination]
+                    updated_decomposition_webs.append(union_web)
 
                     for j, other_decomposition in enumerate(decompositions):
                         if i == j: continue
 
-                        other_decomposition_sorted = [tuple(sorted(subweb)) for subweb in other_decomposition]
-                        other_decomposition_sorted = sorted(other_decomposition_sorted, key=lambda x: (len(x), x))
+                        other_decomposition_webs = [BraneWeb.from_subgraph_edges(self.web, subweb) for subweb in other_decomposition]
 
-                        if new_decomposition == other_decomposition_sorted:
-                            not_maximal_indices.add(i)
-                            break
-                    else:
-                        continue
-                    break
-                else:
-                    continue
-                break
+                        if len(updated_decomposition_webs) != len(other_decomposition_webs): continue
+
+                        matches = False
+                        for ud in updated_decomposition_webs:
+                            for od in other_decomposition_webs:
+                                if nx.is_isomorphic(ud.web, od.web):
+                                    matches = True
+                                    break
+
+                        if matches:
+                            not_maximal_indices.add(j)
+
                                     
         maximal_decompositions = [decompositions[i] for i in range(len(decompositions)) if i not in not_maximal_indices]
 
@@ -275,7 +277,7 @@ class BraneWeb:
                 if not nx.is_connected(current_graph): continue
                 if not self.conserves_charge(combination): continue
                 if combination in candidates: continue
-                if self.violates_srule(combination): continue
+                if self.violates_srule(combination, debugging=debugging): continue
 
                 #if not self.subweb_is_minimal(combination): continue
 
@@ -283,8 +285,12 @@ class BraneWeb:
             
         return candidates 
 
-    def violates_srule(self, branes: list) -> bool:
+    def violates_srule(self, branes: list, debugging: bool = False) -> bool:
         '''Checks if a set of branes violates the S-rule.'''
+
+        if debugging:
+            web = BraneWeb.from_subgraph_edges(self.web, branes)
+            web.draw()
 
         seven_branes = set()
         junctions = set()
@@ -310,22 +316,7 @@ class BraneWeb:
 
             branes_on_side1 = 0
             branes_on_side2 = 0
-
-            for brane in connecting_branes:
-                u, v = brane
-                other_node = v if u == seven_brane else u
-                charge_into_seven_brane = self.charge_into_node(seven_brane, other_node)
-                charge_into_seven_brane = np.array(charge_into_seven_brane)
-
-                new_charge = sl2z_matrix @ charge_into_seven_brane
-
-                if new_charge[0] == 0:
-                    raise ValueError("Brane charge transformed to (0, y), cannot determine side for S-rule.")
-
-                if new_charge[0] < 0:
-                    branes_on_side1 += 1
-                if new_charge[0] > 0:
-                    branes_on_side2 += 1
+            branes_on_side1, branes_on_side2 = self.number_of_branes_on(connecting_branes, seven_brane, sl2z_matrix)
 
             NS5_charge = 0
             for junction in junctions:
@@ -335,21 +326,67 @@ class BraneWeb:
                     u, v = brane
                     other_node = v if u == junction else u
                     charge_into_junction = self.charge_into_node(junction, other_node)
+                    charge_into_junction = np.array(charge_into_junction)
+                    charge_into_junction = sl2z_matrix @ charge_into_junction
 
                     NS5_charge += abs(charge_into_junction[1])
 
             NS5_charge = NS5_charge // 2
 
             if NS5_charge == 0 and len(seven_branes) > 2:
+                if debugging: print('violates s-rule: NS5 charge 0 but >2 seven-branes')
                 return True
 
             if NS5_charge == 0 and len(seven_branes) <= 2:
+                if debugging: print('does not violate s-rule: NS5 charge 0 and <=2 seven-branes')
                 return False
 
-            if abs(branes_on_side1 - branes_on_side2) != NS5_charge:
+            if abs(branes_on_side1 - branes_on_side2) > NS5_charge:
+                if debugging: print('violates s-rule: imbalance of branes on sides does not match NS5 charge')
                 return True
 
+        for junction in junctions:
+            branes_at_junction = [brane for brane in branes if junction in brane]
+
+            for brane1, brane2 in itertools.combinations(branes_at_junction, 2):
+                u1, v1 = brane1
+                other_node1 = v1 if u1 == junction else u1
+                charge1 = self.charge_into_node(junction, other_node1)
+                charge1 = np.array(charge1)
+
+                u2, v2 = brane2
+                other_node2 = v2 if u2 == junction else u2
+                charge2 = self.charge_into_node(junction, other_node2)
+                charge2 = np.array(charge2)
+
+                if charge1[0] == -charge2[0] and charge1[1] == -charge2[1]:
+                    if debugging: print('violates s-rule: has NS5 charge, but two branes at junction have opposite charges')
+                    return True
+
         return False
+
+    def number_of_branes_on(self, branes: list, node: str, sl2z_transform: np.ndarray = np.array([[1,0],[0,1]])) -> tuple:
+        '''Counts the number of branes on each side of a node (7-brane or junction).'''
+        number_on_left = 0
+        number_on_right = 0
+
+        for brane in branes:
+            u, v = brane
+            other_node = v if u == node else u
+
+            charge_into_node = self.charge_into_node(node, other_node)
+            charge_into_node = np.array(charge_into_node)
+            charge_into_node = sl2z_transform @ charge_into_node
+
+            if charge_into_node[1] != 0:
+                continue
+
+            if charge_into_node[0] < 0:
+                number_on_right += 1
+            if charge_into_node[0] > 0:
+                number_on_left += 1
+
+        return number_on_left, number_on_right
 
     def extended_gcd(self, p, q):
         """
