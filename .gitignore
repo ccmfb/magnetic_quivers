@@ -1,2 +1,5 @@
 __pycache__/
 sub_quivers/
+misc/
+*.DS_Store
+dev_scripts/

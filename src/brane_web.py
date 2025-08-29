@@ -1,6 +1,7 @@
 import math
 import itertools
 import collections
+from dataclasses import dataclass
 
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -15,6 +16,8 @@ class BraneWeb:
     '''
     A class to represent a brane web using a graph structure.
     '''
+    Brane = tuple[str, str]
+    Subweb = list[Brane]
 
     def __init__(self):
         self.web = nx.MultiGraph()
@@ -36,366 +39,139 @@ class BraneWeb:
         for _ in range(multiplicity):
             self.web.add_edge(start_id, end_id, charge=charge)
 
-    def magnetic_quivers(self):
-        '''Finds the magnetic quivers associated with the brane web.'''
+    def subwebs(self) -> list[Subweb]:
+        '''Finds all subwebs in the brane web.'''
+        subwebs = []
 
-        subweb_decompositions = self.subweb_decompositions_brute_force()
-
-        magnetic_quivers = []
-        for i, decomp in enumerate(subweb_decompositions):
-
-            subweb_counts = collections.Counter(decomp)
-            print(subweb_counts)
-
-            number_of_nodes = len(subweb_counts)
-
-            nodes = [i+1 for i in range(number_of_nodes)]
-            values = [count for count in subweb_counts.values()]
-            edges = []
-
-            for i, subweb in enumerate(subweb_counts.keys()):
-                for j, other_subweb in enumerate(subweb_counts.keys()):
-                    if i <= j: continue
-
-                    multiplicity1 = subweb_counts[subweb]
-                    multiplicity2 = subweb_counts[other_subweb]
-
-                    subweb_with_keys = [(u, v, 0) for u, v in subweb]
-                    other_subweb_with_keys = [(u, v, 0) for u, v in other_subweb]
-                    subgraph1 = self.web.edge_subgraph(subweb_with_keys)
-                    subgraph2 = self.web.edge_subgraph(other_subweb_with_keys)
-
-                    edge_num = self.edge_number(subgraph1, subgraph2, multiplicity1, multiplicity2)
-                    edge_num = edge_num // (multiplicity1 * multiplicity2)
-
-                    for _ in range(edge_num):
-                        edges.append((i+1, j+1))
-
-            magnetic_quivers.append(
-                Quiver(nodes, edges, values)
-            )
+        # Candidates across junctions, needs S-Rule fixing
+        junctions = set(node for node, attr in self.web.nodes(data=True) if attr['type'] == 'junction')
         
-        return magnetic_quivers
+        for junction in junctions:
+            subwebs_across_junction = self.candidates_across_junction(junction)
+            subwebs_across_junction = self.minimal_subwebs(subwebs_across_junction)
+            subwebs_across_junction = self.srule_corrections(subwebs_across_junction)
 
-    def edge_number(self, subweb1, subweb2, multiplicity1, multiplicity2) -> int:
-        '''
-        Calculates the number of edges between two subwebs.
-        '''
+            subwebs.extend(subwebs_across_junction)
 
-        # Graphs to shapely MultiLineStrings, one slightly offset for stable intersection
-        geometry1 = self.graph_to_multilinestring(subweb1)
-        geometry2 = self.graph_to_multilinestring(subweb2, offset=True)
+        # Pieces that are solely between 7-branes
+        seven_seven_branes = [
+            (u, v) for u, v in self.web.edges() 
+            if self.web.nodes[u]['type'] == 'seven-brane' and self.web.nodes[v]['type'] == 'seven-brane'
+        ]
+        seven_seven_branes_counts = collections.Counter(seven_seven_branes)
+        for (u, v), count in seven_seven_branes_counts.items():
+            subwebs.append([(u,v)])
 
+        return subwebs
 
-        # Finding intersections using STRtree for efficiency
-        all_lines1 = list(geometry1.geoms)
-        all_lines2 = list(geometry2.geoms)
-        tree2 = STRtree(all_lines2)
+    def srule_corrections(self, subwebs: list[Subweb]) -> list[Subweb]:
+        '''Applies S-Rule corrections to a list of candidate subwebs.'''
 
-        intersection_pairs = []
-        for i, line1 in enumerate(all_lines1):
-            candidates = tree2.query(line1)
+        corrected_subwebs = []
+        for subweb in subwebs:
+            updated_subweb = subweb.copy()
+            srule_satisfied = True
 
-            for j in candidates:
-                candidate_line2 = all_lines2[j]
+            sj_branes = []
+            for u, v in subweb:
+                if self.web.nodes[u]['type'] == 'junction' and self.web.nodes[v]['type'] == 'seven-brane': sj_branes.append((u, v))
+                if self.web.nodes[v]['type'] == 'junction' and self.web.nodes[u]['type'] == 'seven-brane': sj_branes.append((v, u))
 
-                if line1.intersects(candidate_line2):
-                    intersection_pairs.append(
-                        (line1, candidate_line2)
-                    )
+            sj_branes_counts = collections.Counter(sj_branes)
+            for brane, count in sj_branes_counts.items():
+                NS5_charge = self.NS5_charge_seen_from(brane, sj_branes)
 
-        # Calculating intersection number
-        intersection_number = 0
-        for line1, line2 in intersection_pairs:
-            line1 = list(line1.coords)
-            line2 = list(line2.coords)
+                if NS5_charge == 0: continue
+                if count > NS5_charge: 
+                    excess = count - NS5_charge
+                    seven_brane = brane[1] if self.web.nodes[brane[0]]['type'] == 'junction' else brane[0]
+                    junction = brane[0] if self.web.nodes[brane[0]]['type'] == 'junction' else brane[1]
+                    extensions = self.find_extensions((junction, seven_brane), excess, NS5_charge)
 
-            charges1 = (
-                int(line1[1][0] - line1[0][0]),
-                int(line1[1][1] - line1[0][1])
-            )
-            charges1 = (charges1[0] * multiplicity1, charges1[1] * multiplicity1)
-            charges2 = (
-                int(line2[1][0] - line2[0][0]),
-                int(line2[1][1] - line2[0][1])
-            )
-            charges2 = (charges2[0] * multiplicity2, charges2[1] * multiplicity2)
+                    if len(extensions) == 0:
+                        print('no extensions found, removing subweb')
+                        srule_satisfied = False
+                        break
 
-            determinant = charges1[0] * charges2[1] - charges1[1] * charges2[0]
-            intersection_number += abs(determinant)
+                    updated_subweb.extend(extensions)
 
-        # 7-brane corrections, needs implementation
-        shared_nodes = set(subweb1.nodes()) & set(subweb2.nodes())
-        for node in shared_nodes:
-            if self.web.nodes[node]['type'] != 'seven-brane': continue
+            if srule_satisfied:
+                corrected_subwebs.append(updated_subweb)
 
-            edges1 = list(subweb1.edges(node))
-            edges2 = list(subweb2.edges(node))
+        return corrected_subwebs
 
-            charge_into_node1 = self.charge_into_node(node, edges1[0][1] if edges1[0][0] == node else edges1[0][0])
-            charge_into_node1 = np.array(charge_into_node1)
+    def find_extensions(self, brane: Brane, count: int, NS5_charge: int) -> list[Brane]:
+        '''Finds possible extensions for a given brane to satisfy the S-Rule. brane needs to be (junction, seven-brane)'''
+        excess = count - NS5_charge
+    
+        possible_extensions = self.web.edges(brane[1])
+        extensions_on_other_side = []
 
-            charge_into_node2 = self.charge_into_node(node, edges2[0][1] if edges2[0][0] == node else edges2[0][0])
-            charge_into_node2 = np.array(charge_into_node2)
+        for u, v in possible_extensions:
+            if v == brane[0]: continue
 
-            if np.dot(charge_into_node1, charge_into_node2) > 0:
-                # same direction, subtract
-                intersection_number -= multiplicity1 * multiplicity2
-            else:
-                # opposite direction, add
-                intersection_number += multiplicity1 * multiplicity2
+            extensions_on_other_side.append((u, v))
 
-        return intersection_number
+        if len(extensions_on_other_side) < excess:
+            return []
 
-    def graph_to_multilinestring(self, graph: nx.MultiGraph, offset=False) -> MultiLineString:
-        '''Converts a NetworkX MultiGraph to a Shapely MultiLineString.'''
+        if len(extensions_on_other_side) <= NS5_charge:
+            return extensions_on_other_side
 
-        if offset:
-            offset_vec = np.random.rand(2)
-            length = np.linalg.norm(offset_vec)
-            offset_vec = 0.1 * (offset_vec / length)
-        else:
-            offset_vec = np.array([0, 0])
+        return self.find_extensions(extensions_on_other_side[0], count - NS5_charge, NS5_charge) + extensions_on_other_side[:NS5_charge]
 
-        lines = []
-        for u, v in graph.edges():
-            pos_u = np.array(self.web.nodes[u]['pos']) + offset_vec
-            pos_v = np.array(self.web.nodes[v]['pos']) + offset_vec
-            lines.append([(pos_u[0], pos_u[1]), (pos_v[0], pos_v[1])])
+    def NS5_charge_seen_from(self, brane: Brane, branes: Subweb) -> Subweb:
+        '''Transforms all branes such that the given brane is a (1,0) brane and reads off the NS5 charge.'''    
+        charge = np.array(self.web.edges[(brane[0], brane[1], 0)]['charge'])
+        a, b = self.extended_euclidean_algorithm(charge[0], charge[1])
 
-        return MultiLineString(lines)
+        transformation_matrix = np.array([[a, b], [-charge[1], charge[0]]])
 
-    def subweb_decompositions_brute_force(self) -> list:
-        '''
-        Generates all possible subweb combinations and filters them to find valid decompositions.
-        '''
+        NS5_charge = 0
+        for brane in branes:
+            orginal_charge = np.array(self.web.edges[(brane[0], brane[1], 0)]['charge'])
+            new_charge = transformation_matrix @ orginal_charge
 
-        subwebs = self.subwebs()
-        print(f'Found {len(subwebs)} valid subwebs')
+            NS5_charge += abs(new_charge[1])
+        
+        return NS5_charge // 2
 
-        decompositions = []
-        for r in range(1, len(subwebs)+1):
-            combinations_of_size_r = itertools.combinations(subwebs, r)
+    def minimal_subwebs(self, subwebs: list[Subweb]) -> list[Subweb]:
+        '''Filters out non-minimal subwebs.'''
 
-            for combination in combinations_of_size_r:
-                combined_edges = []
-                for subweb in combination:
-                    combined_edges.extend(subweb)
+        minimal_subwebs = subwebs.copy()
 
-                combined_graph = nx.MultiGraph(combined_edges)
-                if not nx.is_isomorphic(self.web, combined_graph): continue
+        all_combinations = self.all_unions_of_subwebs(subwebs)
+        for combination in all_combinations:
+            for subweb in subwebs:
+                if not self.same_subweb(combination, subweb): continue
+                if subweb not in minimal_subwebs: continue
 
-                decompositions.append(combination)
+                minimal_subwebs.remove(subweb)
+                break
 
-        print('Found', len(decompositions), 'decompositions')
-        decompositions = self.get_maximal_decompositions(decompositions)
-        print('Found', len(decompositions), 'maximal decompositions')
-        return decompositions
+        return minimal_subwebs
 
-    def get_maximal_decompositions(self, decompositions: list) -> list:
-        '''
-        Filters a list of decompositions to find only the maximal ones.
+    def candidates_across_junction(self, junction: str) -> list[Subweb]:
+        '''Finds all subwebs across a given junction.'''
 
-        For each decomposition, choose r subwebs to combine. The new combination with the remaining subwebs in the decomposition
-        now forms a new decomposition. If this new decomposition exists in the list of decompositions, then that decomposition
-        is not maximal.
-        '''
-
-        not_maximal_indices = set()
-        for i, decomposition in enumerate(decompositions):
-            for r in range(2, len(decomposition) + 1):
-                for combination in itertools.combinations(decomposition, r):
-
-                    union = []
-                    for part in combination:
-                        union.extend(part)
-
-                    union_web = BraneWeb.from_subgraph_edges(self.web, union)
-
-                    updated_decomposition_webs = [BraneWeb.from_subgraph_edges(self.web, subweb) for subweb in decomposition if subweb not in combination]
-                    updated_decomposition_webs.append(union_web)
-
-                    for j, other_decomposition in enumerate(decompositions):
-                        if i == j: continue
-
-                        other_decomposition_webs = [BraneWeb.from_subgraph_edges(self.web, subweb) for subweb in other_decomposition]
-
-                        if len(updated_decomposition_webs) != len(other_decomposition_webs): continue
-
-                        matches = False
-                        for ud in updated_decomposition_webs:
-                            for od in other_decomposition_webs:
-                                if nx.is_isomorphic(ud.web, od.web):
-                                    matches = True
-                                    break
-
-                        if matches:
-                            not_maximal_indices.add(j)
-
-                                    
-        maximal_decompositions = [decompositions[i] for i in range(len(decompositions)) if i not in not_maximal_indices]
-
-        return maximal_decompositions
-
-    def remove_edges(self, graph: nx.MultiGraph, edges: list) -> nx.MultiGraph:
-        '''Removes edges from a graph, taking into account multiplicities.'''
-        new_graph = graph.copy()
-
-        edges_count = collections.Counter(new_graph.edges())
-        edges_to_remove_count = collections.Counter(edges)
-
-        for edge, count in edges_to_remove_count.items():
-            if edges_count[edge] < count:
-                raise ValueError(f"Cannot remove {count} instances of edge {edge}, only {edges_count[edge]} exist.")
-
-            # keys
-            keys = list(new_graph[edge[0]][edge[1]].keys())
-            for key in keys[:count]:
-                new_graph.remove_edge(edge[0], edge[1], key=key)
-
-        return new_graph
-
-    def subwebs(self, debugging: bool = False) -> list:
-        '''Finds all possible and valid subwebs of the brane web.'''
-
-        branes = list(self.web.edges())
+        branes = list(self.web.edges(junction))
 
         candidates = []
-        for r in range(1, len(branes)+1):
-            combinations_of_size_r = itertools.combinations(branes, r)
 
-            for combination in combinations_of_size_r:
-                current_graph = nx.MultiGraph(combination)
+        all_combinations = self.all_combinations_of_branes(branes, min_r=2)
+        for combination in all_combinations:
 
-                if not nx.is_connected(current_graph): continue
-                if not self.conserves_charge(combination): continue
-                if combination in candidates: continue
-                if self.violates_srule(combination, debugging=debugging): continue
+            if combination in candidates: continue
+            if not self.conserves_charge(combination): continue
 
-                candidates.append(combination)
+            candidates.append(combination)
 
-        for r in range(2, len(candidates)+1):
-            for combination in itertools.combinations_with_replacement(candidates, r):
+        return candidates
 
-                union = []
-                for comb in combination:
-                    union.extend(comb)
+    def extended_euclidean_algorithm(self, p, q):
+        '''Iterative implementation of the Extended Euclidean Algorithm.'''
 
-                for candidate in candidates:
-                    if self.same_subweb(union, candidate): 
-                        candidates.remove(candidate)
-
-        return candidates 
-
-    def violates_srule(self, branes: list, debugging: bool = False) -> bool:
-        '''Checks if a set of branes violates the S-rule.'''
-
-        if debugging:
-            web = BraneWeb.from_subgraph_edges(self.web, branes)
-            web.draw()
-
-        seven_branes = set()
-        junctions = set()
-        for u, v in branes:
-            if self.web.nodes[u]['type'] == 'seven-brane':
-                seven_branes.add(u)
-            if self.web.nodes[v]['type'] == 'seven-brane':
-                seven_branes.add(v)
-
-            if self.web.nodes[u]['type'] == 'junction':
-                junctions.add(u)
-            if self.web.nodes[v]['type'] == 'junction':
-                junctions.add(v)
-
-        for seven_brane in seven_branes:
-            connecting_branes = [brane for brane in branes if seven_brane in brane]
-
-            charge = self.charge_into_node(connecting_branes[0][0], connecting_branes[0][1]) # direction doesnt matter here
-            charge = np.array(charge)
-            a, b = self.extended_gcd(charge[0], charge[1])
-
-            sl2z_matrix = np.array([[a, b], [-charge[1], charge[0]]])
-
-            branes_on_side1, branes_on_side2 = self.number_of_branes_on(connecting_branes, seven_brane, sl2z_matrix)
-            if branes_on_side1 - branes_on_side2 == 0:
-                if debugging: print('violates s-rule: equal number of branes on both sides of 7-brane')
-                return True
-
-            NS5_charge = 0
-            for junction in junctions:
-                branes_at_junction = [brane for brane in branes if junction in brane]
-
-                for brane in branes_at_junction:
-                    u, v = brane
-                    other_node = v if u == junction else u
-                    charge_into_junction = self.charge_into_node(junction, other_node)
-                    charge_into_junction = np.array(charge_into_junction)
-                    charge_into_junction = sl2z_matrix @ charge_into_junction
-
-                    NS5_charge += abs(charge_into_junction[1])
-
-            NS5_charge = NS5_charge // 2
-
-            if NS5_charge == 0 and len(seven_branes) > 2:
-                if debugging: print('violates s-rule: NS5 charge 0 but >2 seven-branes')
-                return True
-
-            if NS5_charge == 0 and len(seven_branes) <= 2:
-                if debugging: print('does not violate s-rule: NS5 charge 0 and <=2 seven-branes')
-                return False
-
-            if abs(branes_on_side1 - branes_on_side2) > NS5_charge:
-                if debugging: print('violates s-rule: imbalance of branes on sides does not match NS5 charge')
-                return True
-
-        for junction in junctions:
-            branes_at_junction = [brane for brane in branes if junction in brane]
-
-            for brane1, brane2 in itertools.combinations(branes_at_junction, 2):
-                u1, v1 = brane1
-                other_node1 = v1 if u1 == junction else u1
-                charge1 = self.charge_into_node(junction, other_node1)
-                charge1 = np.array(charge1)
-
-                u2, v2 = brane2
-                other_node2 = v2 if u2 == junction else u2
-                charge2 = self.charge_into_node(junction, other_node2)
-                charge2 = np.array(charge2)
-
-                if charge1[0] == -charge2[0] and charge1[1] == -charge2[1]:
-                    if debugging: print('violates s-rule: has NS5 charge, but two branes at junction have opposite charges')
-                    return True
-
-        return False
-
-    def number_of_branes_on(self, branes: list, node: str, sl2z_transform: np.ndarray = np.array([[1,0],[0,1]])) -> tuple:
-        '''Counts the number of branes on each side of a node (7-brane or junction).'''
-        number_on_left = 0
-        number_on_right = 0
-
-        for brane in branes:
-            u, v = brane
-            other_node = v if u == node else u
-
-            charge_into_node = self.charge_into_node(node, other_node)
-            charge_into_node = np.array(charge_into_node)
-            charge_into_node = sl2z_transform @ charge_into_node
-
-            if charge_into_node[1] != 0:
-                continue
-
-            if charge_into_node[0] < 0:
-                number_on_right += 1
-            if charge_into_node[0] > 0:
-                number_on_left += 1
-
-        return number_on_left, number_on_right
-
-    def extended_gcd(self, p, q):
-        """
-        Returns a tuple (gcd, a, b) such that a*p + b*q = gcd.
-        This is an iterative implementation of the Extended Euclidean Algorithm.
-        """
         if p == 0:
             return (0, 1)
         
@@ -417,78 +193,91 @@ class BraneWeb:
             old_t, t = t, old_t - quotient * t
             
         # gcd is old_r, and coefficients are old_s and old_t
-
         return old_s, old_t
 
-    def get_NS5_charge(self, branes: list) -> int:
-        '''Calculates the NS5 charge of a set of branes at their junction'''
-
-        junctions = set()
-        for u, v in branes:
-            if self.web.nodes[u]['type'] == 'junction':
-                junctions.add(u)
-            if self.web.nodes[v]['type'] == 'junction':
-                junctions.add(v)
-
-        if len(junctions) == 0: return 0
-
-        total_NS5_charge = 0
-        for junction in junctions:
-            branes_at_junction = [brane for brane in branes if junction in brane]
-            NS5_charge = 0
-
-            for brane in branes_at_junction:
-                u, v = brane
-                other_node = v if u == junction else u
-                charge_into_junction = self.charge_into_node(junction, other_node)
-
-                NS5_charge += charge_into_junction[1]
-
-            total_NS5_charge += abs(NS5_charge)
-
-        return total_NS5_charge // 2
-
-    def conserves_charge(self, branes: list) -> bool:
+    def conserves_charge(self, branes: Subweb) -> bool:
         '''Checks if a set of branes conserves charge at each junction.'''
 
-        # extracting junctions from branes
         junctions = set()
         for u, v in branes:
-            if self.web.nodes[u]['type'] == 'junction':
-                junctions.add(u)
-            if self.web.nodes[v]['type'] == 'junction':
-                junctions.add(v)
+            if self.web.nodes[u]['type'] == 'junction': junctions.add(u)
+            if self.web.nodes[v]['type'] == 'junction': junctions.add(v)
 
         for junction in junctions:
             branes_at_junction = [brane for brane in branes if junction in brane]
-            total_charge = [0, 0]
 
-            for brane in branes_at_junction:
-                u, v = brane
+            charge = [0, 0]
+            for u, v in branes_at_junction:
                 other_node = v if u == junction else u
-                charge_into_junction = self.charge_into_node(junction, other_node)
-
-                total_charge[0] += charge_into_junction[0]
-                total_charge[1] += charge_into_junction[1]
-
-            if total_charge != [0, 0]:
-                return False
+                
+                charge[0] += self.charge_into_node(junction, other_node)[0]
+                charge[1] += self.charge_into_node(junction, other_node)[1]
             
+            if charge != [0, 0]:
+                return False
+
         return True
 
-    def charge_into_node(self, node: str, other_node: str) -> tuple:
-        '''Calculates the charge vector pointing into a node from another node.'''
+    def charge_into_node(self, node: str, other_node: str) -> tuple[int, int]:
+        '''Calculates the (p,q) charge of a brane going into a node from another node.'''
+
         if node not in self.web.nodes or other_node not in self.web.nodes:
             raise ValueError("Both nodes must exist in the brane web.")
-
+        
         charge = (
             self.web.nodes[node]['pos'][0] - self.web.nodes[other_node]['pos'][0],
             self.web.nodes[node]['pos'][1] - self.web.nodes[other_node]['pos'][1]
         )
-        gcd = math.gcd(int(charge[0]), int(charge[1]))
+        gcd = math.gcd(charge[0], charge[1])
         charge = (charge[0] // gcd, charge[1] // gcd)
 
         return charge
+
+    def all_combinations_of_branes(self, branes: Subweb, min_r: int = 2) -> list[Subweb]:
+        '''Generates all combinations of branes of size at least min_r.'''
+
+        # It should be possible to reduce the set of branes for a given r to those that are not duplicates, or rather for 
+        # r=2 no counts >1, for r=3 no counts >2, etc. But this is not implemented yet.
+        # This may reduce the number of combinations to check significantly.
+
+        all_combinations = []
+        for r in range(min_r, len(branes) + 1):
+            combinations_of_size_r = itertools.combinations(branes, r)
+            all_combinations.extend(combinations_of_size_r)
+
+        all_combinations = [list(comb) for comb in all_combinations]
+
+        return all_combinations
+
+    def all_unions_of_subwebs(self, subwebs: list[Subweb]) -> list[Subweb]:
+        '''Generates all unions of subwebs.'''
+
+        all_unions = []
+        for r in range(2, len(subwebs) + 1):
+            combinations_of_size_r = itertools.combinations(subwebs, r)
+
+            for combination in combinations_of_size_r:
+                union = []
+                for subweb in combination:
+                    union.extend(subweb)
+                all_unions.append(union)
+
+        return all_unions
+
+    def same_subweb(self, subweb1: Subweb, subweb2: Subweb) -> bool:
+        '''Checks if two subwebs are the same irrespective of order.'''
+
+        sorted1 = []
+        for brane in subweb1:
+            sorted1.append(sorted(brane))
+        sorted1 = sorted(sorted1)
+
+        sorted2 = []
+        for brane in subweb2:
+            sorted2.append(sorted(brane))
+        sorted2 = sorted(sorted2)
+
+        return sorted1 == sorted2
 
     def draw(self, save_path: str = None):
         '''Visualises the brane web.'''
@@ -570,21 +359,6 @@ class BraneWeb:
         else:
             plt.show()
 
-    def same_subweb(self, subweb1, subweb2):
-        '''Function to compare if two subwebs (edges) are equivalent'''
-
-        sorted_subweb1 = []
-        for brane in subweb1:
-            sorted_subweb1.append(sorted(brane))
-        sorted_subweb1 = sorted(sorted_subweb1)
-
-        sorted_subweb2 = []
-        for brane in subweb2:
-            sorted_subweb2.append(sorted(brane))
-        sorted_subweb2 = sorted(sorted_subweb2)
-
-        return sorted_subweb1 == sorted_subweb2
-
     @classmethod
     def from_graph(cls, graph: nx.MultiGraph):
         '''Creates a BraneWeb instance from an existing NetworkX MultiGraph.'''
@@ -605,3 +379,7 @@ class BraneWeb:
         
         subgraph = graph.edge_subgraph(upd_edges).copy()
         return cls.from_graph(subgraph)
+
+
+
+

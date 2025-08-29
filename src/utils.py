@@ -77,3 +77,4 @@ def init_minimal_transitions(dim_upper_bound: int = 10):
         )
     
     return minimal_transitions
+
