@@ -36,23 +36,16 @@ class BraneWeb:
         for _ in range(multiplicity):
             self.web.add_edge(start_id, end_id, charge=charge)
 
-    def find_magnetic_quivers(self):
-        '''
-        Finds the magnetic quivers associated with the brane web. 
-        '''
+    def magnetic_quivers(self):
+        '''Finds the magnetic quivers associated with the brane web.'''
 
-        subweb_decompositions = self.find_subweb_decompositions('j1', draw_subwebs=False)
+        subweb_decompositions = self.subweb_decompositions_brute_force()
 
         magnetic_quivers = []
-        for i,decomp in enumerate(subweb_decompositions):
+        for i, decomp in enumerate(subweb_decompositions):
 
-            subweb_counts = {}
-            for j, subweb in enumerate(decomp):
-                edges = tuple(subweb.edges())
-
-                if edges not in subweb_counts:
-                    subweb_counts[edges] = 0
-                subweb_counts[edges] += 1
+            subweb_counts = collections.Counter(decomp)
+            print(subweb_counts)
 
             number_of_nodes = len(subweb_counts)
 
@@ -279,10 +272,19 @@ class BraneWeb:
                 if combination in candidates: continue
                 if self.violates_srule(combination, debugging=debugging): continue
 
-                #if not self.subweb_is_minimal(combination): continue
-
                 candidates.append(combination)
-            
+
+        for r in range(2, len(candidates)+1):
+            for combination in itertools.combinations_with_replacement(candidates, r):
+
+                union = []
+                for comb in combination:
+                    union.extend(comb)
+
+                for candidate in candidates:
+                    if self.same_subweb(union, candidate): 
+                        candidates.remove(candidate)
+
         return candidates 
 
     def violates_srule(self, branes: list, debugging: bool = False) -> bool:
@@ -314,9 +316,10 @@ class BraneWeb:
 
             sl2z_matrix = np.array([[a, b], [-charge[1], charge[0]]])
 
-            branes_on_side1 = 0
-            branes_on_side2 = 0
             branes_on_side1, branes_on_side2 = self.number_of_branes_on(connecting_branes, seven_brane, sl2z_matrix)
+            if branes_on_side1 - branes_on_side2 == 0:
+                if debugging: print('violates s-rule: equal number of branes on both sides of 7-brane')
+                return True
 
             NS5_charge = 0
             for junction in junctions:
@@ -566,6 +569,21 @@ class BraneWeb:
             plt.savefig(save_path, bbox_inches='tight')
         else:
             plt.show()
+
+    def same_subweb(self, subweb1, subweb2):
+        '''Function to compare if two subwebs (edges) are equivalent'''
+
+        sorted_subweb1 = []
+        for brane in subweb1:
+            sorted_subweb1.append(sorted(brane))
+        sorted_subweb1 = sorted(sorted_subweb1)
+
+        sorted_subweb2 = []
+        for brane in subweb2:
+            sorted_subweb2.append(sorted(brane))
+        sorted_subweb2 = sorted(sorted_subweb2)
+
+        return sorted_subweb1 == sorted_subweb2
 
     @classmethod
     def from_graph(cls, graph: nx.MultiGraph):
