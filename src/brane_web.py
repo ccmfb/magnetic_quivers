@@ -147,7 +147,12 @@ class BraneWeb:
             side2_node = None
 
             for u, v in subweb1:
-                other_node = u if u != seven_brane else v
+                if u == seven_brane:
+                    other_node = v
+                elif v == seven_brane:
+                    other_node = u
+                else:
+                    continue
 
                 if side1_node == other_node: continue
                 if side2_node == other_node: continue
@@ -158,7 +163,12 @@ class BraneWeb:
                     side2_node = other_node
 
             for u, v in subweb2:
-                other_node = u if u != seven_brane else v
+                if u == seven_brane:
+                    other_node = v
+                elif v == seven_brane:
+                    other_node = u
+                else:
+                    continue
 
                 if side1_node == other_node: continue
                 if side2_node == other_node: continue
