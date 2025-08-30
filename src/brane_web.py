@@ -39,6 +39,37 @@ class BraneWeb:
         for _ in range(multiplicity):
             self.web.add_edge(start_id, end_id, charge=charge)
 
+    def decompositions(self) -> list[list[Subweb]]:
+        '''Finds all maximal subweb decompositions of the brane web.'''
+
+        all_subwebs = self.subwebs()
+        print(f'Found {len(all_subwebs)} possible subwebs..')
+        decompositions = []
+
+        queue = [(self.web.edges(), [])] # fomat: (remaining_branes, list of subwebs found so far)
+
+        while queue:
+            remaining_branes, found_subwebs = queue.pop(0)
+            if len(remaining_branes) == 0:
+                for other_decomposition in decompositions:
+                    if self.same_decomposition(found_subwebs, other_decomposition): break
+                else:
+                    decompositions.append(found_subwebs)
+
+            for subweb in all_subwebs:
+                if not self.is_subweb(subweb, remaining_branes): continue
+
+                new_remaining_branes = self.subtract_subweb(remaining_branes, subweb)
+                new_decomposition = found_subwebs.copy()
+                new_decomposition.append(subweb)
+
+                for _, other_decomposition in queue:
+                    if self.same_decomposition(new_decomposition, other_decomposition): break
+                else:
+                    queue.append((new_remaining_branes, new_decomposition))
+
+        return decompositions
+
     def subwebs(self) -> list[Subweb]:
         '''Finds all subwebs in the brane web.'''
         subwebs = []
@@ -86,7 +117,7 @@ class BraneWeb:
                     excess = count - NS5_charge
                     seven_brane = brane[1] if self.web.nodes[brane[0]]['type'] == 'junction' else brane[0]
                     junction = brane[0] if self.web.nodes[brane[0]]['type'] == 'junction' else brane[1]
-                    extensions = self.find_extensions((junction, seven_brane), excess, NS5_charge)
+                    extensions = self.find_extensions((junction, seven_brane), count, NS5_charge)
 
                     if len(extensions) == 0:
                         print('no extensions found, removing subweb')
@@ -116,9 +147,9 @@ class BraneWeb:
             return []
 
         if len(extensions_on_other_side) <= NS5_charge:
-            return extensions_on_other_side
+            return extensions_on_other_side[:excess]
 
-        return self.find_extensions(extensions_on_other_side[0], count - NS5_charge, NS5_charge) + extensions_on_other_side[:NS5_charge]
+        return self.find_extensions(extensions_on_other_side[0], count - NS5_charge, NS5_charge) + extensions_on_other_side[:excess]
 
     def NS5_charge_seen_from(self, brane: Brane, branes: Subweb) -> Subweb:
         '''Transforms all branes such that the given brane is a (1,0) brane and reads off the NS5 charge.'''    
@@ -141,14 +172,23 @@ class BraneWeb:
 
         minimal_subwebs = subwebs.copy()
 
-        all_combinations = self.all_unions_of_subwebs(subwebs)
-        for combination in all_combinations:
-            for subweb in subwebs:
-                if not self.same_subweb(combination, subweb): continue
-                if subweb not in minimal_subwebs: continue
+        for i, subweb1 in enumerate(subwebs):
+            for j, subweb2 in enumerate(subwebs):
+                if i == j: continue
+                if len(subweb1) >= len(subweb2): continue
+                if not self.is_subweb(subweb1, subweb2): continue
+                if subweb2 not in minimal_subwebs: continue
 
-                minimal_subwebs.remove(subweb)
-                break
+                minimal_subwebs.remove(subweb2)
+
+        # all_combinations = self.all_unions_of_subwebs(subwebs)
+        # for combination in all_combinations:
+            # for subweb in subwebs:
+                # if not self.same_subweb(combination, subweb): continue
+                # if subweb not in minimal_subwebs: continue
+
+                # minimal_subwebs.remove(subweb)
+                # break
 
         return minimal_subwebs
 
@@ -278,6 +318,73 @@ class BraneWeb:
         sorted2 = sorted(sorted2)
 
         return sorted1 == sorted2
+
+    def same_decomposition(self, decomposition1: list[Subweb], decomposition2: list[Subweb]) -> bool:
+        '''Checks if two decompositions are the same'''
+
+        if len(decomposition1) != len(decomposition2): return False
+
+        sorted_decomposition1 = []
+        for subweb1 in decomposition1:
+            sorted1 = []
+            for brane in subweb1:
+                sorted1.append(sorted(brane))
+            sorted1 = sorted(sorted1)
+            sorted_decomposition1.append(sorted1)
+
+        sorted_decomposition2 = []
+        for subweb2 in decomposition2:
+            sorted2 = []
+            for brane in subweb2:
+                sorted2.append(sorted(brane))
+            sorted2 = sorted(sorted2)
+            sorted_decomposition2.append(sorted2)
+
+        for subweb1 in sorted_decomposition1:
+            if subweb1 not in sorted_decomposition2:
+                return False
+
+        return True
+
+    def is_subweb(self, subweb1: Subweb, subweb2: Subweb) -> bool:
+        '''Checks if subweb1 is contained in subweb2.'''
+
+        sorted1 = []
+        for brane in subweb1:
+            sorted1.append(tuple(sorted(brane)))
+        sorted1 = sorted(sorted1)
+
+        sorted2 = []
+        for brane in subweb2:
+            sorted2.append(tuple(sorted(brane)))
+        sorted2 = sorted(sorted2)
+
+        sorted1_counts = collections.Counter(sorted1)
+        sorted2_counts = collections.Counter(sorted2)
+
+        for brane in sorted1_counts:
+            if brane not in sorted2_counts.keys(): return False
+            if sorted1_counts[brane] > sorted2_counts[brane]: return False
+
+        return True
+
+    def subtract_subweb(self, subweb1: Subweb, subweb2: Subweb) -> Subweb:
+        '''Subtracts subweb 2 from subweb1, ie. removes relevent edges.'''
+        sorted1 = []
+        for brane in subweb1:
+            sorted1.append(sorted(brane))
+        sorted1 = sorted(sorted1)
+
+        sorted2 = []
+        for brane in subweb2:
+            sorted2.append(sorted(brane))
+        sorted2 = sorted(sorted2)
+
+        for brane in sorted2:
+            # if not brane in sorted1: continue
+            sorted1.remove(brane)
+
+        return sorted1
 
     def draw(self, save_path: str = None):
         '''Visualises the brane web.'''
