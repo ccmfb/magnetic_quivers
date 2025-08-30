@@ -39,11 +39,194 @@ class BraneWeb:
         for _ in range(multiplicity):
             self.web.add_edge(start_id, end_id, charge=charge)
 
+    def magnetic_quivers(self) -> list[Quiver]:
+        '''Finds the magnetic quivers associated with a brane web.'''
+
+        decompositions = self.decompositions()
+
+        magnetic_quivers = []
+        for decomposition in decompositions:
+            decomposition = [tuple(subweb) for subweb in decomposition]
+            subweb_counts = collections.Counter(decomposition)
+
+            number_of_nodes = len(subweb_counts)
+            nodes = [i+1 for i in range(number_of_nodes)]
+            values = [count for count in subweb_counts.values()]
+            edges = []
+
+            for i, subweb1 in enumerate(subweb_counts.keys()):
+                for j, subweb2 in enumerate(subweb_counts.keys()):
+                    if i <= j: continue
+
+                    count1 = subweb_counts[subweb1]
+                    count2 = subweb_counts[subweb2]
+
+                    edge_number = self.edge_number(subweb1, subweb2, count1, count2)
+
+                    if edge_number % (count1 * count2) != 0:
+                        raise ValueError("Edge number not divisible by product of counts, something went wrong.")
+
+                    edge_number = edge_number // (count1 * count2)
+
+                    for _ in range(edge_number):
+                        edges.append((i+1, j+1))
+
+            magnetic_quivers.append(
+                Quiver(nodes, edges, values)
+            )
+        
+        return magnetic_quivers
+
+    def edge_number(self, subweb1: Subweb, subweb2: Subweb, count1: int, count2: int) -> int:
+        '''Calculates the number of edges between two nodes, ie. subwebs'''
+
+        geometry1 = self.subweb_to_multilinestring(subweb1)
+        geometry2 = self.subweb_to_multilinestring(subweb2, offset=True)
+
+        # Finding intersections
+        all_lines1 = list(geometry1.geoms)
+        all_lines2 = list(geometry2.geoms)
+        tree2 = STRtree(all_lines2)
+
+        intersection_pairs = []
+        for line1 in all_lines1:
+            candidates = tree2.query(line1)
+
+            for index in candidates:
+                candidate_line2 = all_lines2[index]
+
+                if not line1.intersects(candidate_line2): continue
+
+                intersection_pairs.append((line1, candidate_line2))
+
+        # Calculating intersection number
+        intersection_number = 0
+        for line1, line2 in intersection_pairs:
+            line1 = list(line1.coords)
+            line2 = list(line2.coords)
+
+            charges1 = (
+                int(line1[1][0] - line1[0][0]),
+                int(line1[1][1] - line1[0][1])
+            )
+            charges1 = (charges1[0] * count1, charges1[1] * count1)
+            charges2 = (
+                int(line2[1][0] - line2[0][0]),
+                int(line2[1][1] - line2[0][1])
+            )
+            charges2 = (charges2[0] * count2, charges2[1] * count2)
+
+            determinant = charges1[0] * charges2[1] - charges1[1] * charges2[0]
+            intersection_number += abs(determinant)
+
+        # 7-brane corrections, possibly the ugliest code i have ever written
+        seven_branes1 = set()
+        for u, v in subweb1:
+            if self.web.nodes[u]['type'] == 'seven-brane':
+                seven_branes1.add(u)
+            if self.web.nodes[v]['type'] == 'seven-brane':
+                seven_branes1.add(v)
+
+        seven_branes2 = set()
+        for u, v in subweb2:
+            if self.web.nodes[u]['type'] == 'seven-brane':
+                seven_branes2.add(u)
+            if self.web.nodes[v]['type'] == 'seven-brane':
+                seven_branes2.add(v)
+
+        shared_seven_branes = seven_branes1 & seven_branes2
+
+        for seven_brane in shared_seven_branes:
+            branes1_on_seven_brane_side1 = 0
+            branes1_on_seven_brane_side2 = 0
+
+            branes2_on_seven_brane_side1 = 0
+            branes2_on_seven_brane_side2 = 0
+
+            side1_node = None
+            side2_node = None
+
+            for u, v in subweb1:
+                other_node = u if u != seven_brane else v
+
+                if side1_node == other_node: continue
+                if side2_node == other_node: continue
+
+                if side1_node == None:
+                    side1_node = other_node
+                elif side2_node == None:
+                    side2_node = other_node
+
+            for u, v in subweb2:
+                other_node = u if u != seven_brane else v
+
+                if side1_node == other_node: continue
+                if side2_node == other_node: continue
+
+                if side1_node == None:
+                    side1_node = other_node
+                elif side2_node == None:
+                    side2_node = other_node
+
+            for u, v in subweb1:
+                if u == seven_brane:
+                    other_node = v
+                elif v == seven_brane:
+                    other_node = u
+                else:
+                    continue
+
+                if other_node == side1_node:
+                    branes1_on_seven_brane_side1 += count1
+                if other_node == side2_node:
+                    branes1_on_seven_brane_side2 += count1
+
+            for u, v in subweb2:
+                if u == seven_brane:
+                    other_node = v
+                elif v == seven_brane:
+                    other_node = u
+                else:
+                    continue
+
+                if other_node == side1_node:
+                    branes2_on_seven_brane_side1 += count2
+                if other_node == side2_node:
+                    branes2_on_seven_brane_side2 += count2
+
+
+            intersection_number += branes1_on_seven_brane_side1 * branes2_on_seven_brane_side2 # opposite sides
+            intersection_number += branes2_on_seven_brane_side1 * branes1_on_seven_brane_side2 # opposite sides
+            intersection_number -= branes1_on_seven_brane_side1 * branes2_on_seven_brane_side1 # same side
+            intersection_number -= branes1_on_seven_brane_side2 * branes2_on_seven_brane_side2 # same side
+
+        return intersection_number
+
+
+    def subweb_to_multilinestring(self, subweb: Subweb, offset: bool = False) -> MultiLineString:
+        '''Converts Subwebs into multilinestrings'''
+
+        if offset:
+            offset_vec = np.random.rand(2)
+            length = np.linalg.norm(offset_vec)
+            offset_vec = 0.1 * (offset_vec / length)
+        else:
+            offset_vec = np.array([0, 0])
+
+        lines = []
+        for u, v in subweb:
+            position_u = np.array(self.web.nodes[u]['pos']) + offset_vec
+            position_v = np.array(self.web.nodes[v]['pos']) + offset_vec
+            lines.append(
+                [position_u, position_v]
+            )
+        
+        return MultiLineString(lines)
+
     def decompositions(self) -> list[list[Subweb]]:
         '''Finds all maximal subweb decompositions of the brane web.'''
 
         all_subwebs = self.subwebs()
-        print(f'Found {len(all_subwebs)} possible subwebs..')
         decompositions = []
 
         queue = [(self.web.edges(), [])] # fomat: (remaining_branes, list of subwebs found so far)
