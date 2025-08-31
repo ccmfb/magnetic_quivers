@@ -3,10 +3,12 @@ from networkx.algorithms import isomorphism
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from pyvis.network import Network
+from pyvis import network as net
 from collections import deque, defaultdict
 from typing import Dict, List
 import numpy as np
 import matplotlib as mpl
+from IPython.display import IFrame
 import json
 
 
@@ -153,8 +155,10 @@ class Quiver:
         #pos = nx.spring_layout(quiver, seed=42)
         #pos = nx.planar_layout(quiver)
         #pos = nx.bfs_layout(quiver, 1)
-        pos = nx.kamada_kawai_layout(quiver)
+        #pos = nx.kamada_kawai_layout(quiver)
         #pos = nx.multipartite_layout(quiver)
+        pos = nx.forceatlas2_layout(quiver)
+        #pos = nx.arf_layout(quiver)
 
         # draw nodes and labels
         node_list = list(quiver.nodes())
@@ -186,7 +190,7 @@ class Quiver:
             # if there are N parallel edges between u and v, i goes 0..N-1
             N = quiver.number_of_edges(u, v)
             # center them about zero
-            rad = (i - (N-1)/2) * 0.2
+            rad = (i - (N-1)/2) * 0.1
 
             nx.draw_networkx_edges(
                 quiver, pos,
@@ -199,6 +203,16 @@ class Quiver:
         plt.axis('off')
         #plt.savefig("plot.png", dpi=300, bbox_inches="tight")
         plt.show()
+
+    def draw_pyvis(self, path: str = "quiver.html"):
+        '''Display the multi graph quiver using pyvis.'''
+
+        quiver = self.quiver
+        net = Network(notebook=True, cdn_resources='in_line')
+        net.from_nx(quiver)
+
+        net.save_graph(path)
+        IFrame(path, width=700, height=500)
 
     def get_balance(self):
         balance = {}
@@ -249,7 +263,9 @@ class Quiver:
         '''
 
         quiver = self.quiver
-        pos = nx.kamada_kawai_layout(quiver)
+        #pos = nx.kamada_kawai_layout(quiver)
+        pos = nx.spring_layout(quiver)
+        pos = nx.random_layout(quiver)
 
         node_list = list(quiver.nodes())
         fill_colors = ['lightgray' for _ in node_list]
@@ -271,7 +287,7 @@ class Quiver:
             seen[pair] = i + 1
 
             N = quiver.number_of_edges(u, v)
-            rad = (i - (N-1)/2) * 0.2
+            rad = (i - (N-1)/2) * 0.1
 
             nx.draw_networkx_edges(
                 quiver, pos,

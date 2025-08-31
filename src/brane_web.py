@@ -218,7 +218,7 @@ class BraneWeb:
         if offset:
             offset_vec = np.random.rand(2)
             length = np.linalg.norm(offset_vec)
-            offset_vec = 0.1 * (offset_vec / length)
+            offset_vec = 0.3 * (offset_vec / length)
         else:
             offset_vec = np.array([0, 0])
 
@@ -463,9 +463,10 @@ class BraneWeb:
             raise ValueError("Both nodes must exist in the brane web.")
         
         charge = (
-            self.web.nodes[node]['pos'][0] - self.web.nodes[other_node]['pos'][0],
-            self.web.nodes[node]['pos'][1] - self.web.nodes[other_node]['pos'][1]
+            int(self.web.nodes[node]['pos'][0] - self.web.nodes[other_node]['pos'][0]),
+            int(self.web.nodes[node]['pos'][1] - self.web.nodes[other_node]['pos'][1])
         )
+
         gcd = math.gcd(charge[0], charge[1])
         charge = (charge[0] // gcd, charge[1] // gcd)
 
@@ -684,7 +685,3 @@ class BraneWeb:
         
         subgraph = graph.edge_subgraph(upd_edges).copy()
         return cls.from_graph(subgraph)
-
-
-
-
