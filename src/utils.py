@@ -1,4 +1,5 @@
 from unitary_quiver import Quiver
+from brane_web import BraneWeb
 
 import numpy as np
 
@@ -78,3 +79,479 @@ def init_minimal_transitions(dim_upper_bound: int = 10):
     
     return minimal_transitions
 
+
+def init_example_branewebs() -> list:
+    branewebs = []
+
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+
+    web = BraneWeb()
+
+    web.add_seven_brane('7b_1', position=(-1, 0))
+    web.add_seven_brane('7b_2', position=(1, 0))
+    web.add_junction('j1', position=(0, 0))
+
+    web.add_brane('7b_1', 'j1', multiplicity=1)
+    web.add_brane('j1', '7b_2', multiplicity=1)
+
+    branewebs.append(web)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+
+    web = BraneWeb()
+
+    web.add_seven_brane('7b_1', position=(-1, 0))
+    web.add_seven_brane('7b_2', position=(1, 0))
+    web.add_junction('j1', position=(0, 0))
+
+    web.add_brane('7b_1', 'j1', multiplicity=2)
+    web.add_brane('j1', '7b_2', multiplicity=2)
+
+    branewebs.append(web)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+
+    web = BraneWeb()
+
+    web.add_seven_brane('7b_1', position=(-2, 0))
+    web.add_seven_brane('7b_2', position=(-1, 0))
+    web.add_seven_brane('7b_3', position=(1, 0))
+    web.add_seven_brane('7b_4', position=(2, 0))
+
+    web.add_junction('j1', position=(0, 0))
+    web.add_brane('7b_1', '7b_2', multiplicity=1)
+    web.add_brane('7b_2', 'j1', multiplicity=2)
+    web.add_brane('j1', '7b_3', multiplicity=2)
+    web.add_brane('7b_3', '7b_4', multiplicity=1)
+
+    branewebs.append(web)
+    
+    # ------------------------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+
+    web = BraneWeb()
+
+    web.add_seven_brane('7b_1', position=(-3, 0))
+    web.add_seven_brane('7b_2', position=(-2, 0))
+    web.add_seven_brane('7b_3', position=(-1, 0))
+    web.add_seven_brane('7b_4', position=(1, 0))
+    web.add_seven_brane('7b_5', position=(2, 0))
+    web.add_seven_brane('7b_6', position=(3, 0))
+
+    web.add_junction('j1', position=(0, 0))
+
+    web.add_brane('7b_1', '7b_2', multiplicity=1)
+    web.add_brane('7b_2', '7b_3', multiplicity=2)
+    web.add_brane('7b_3', 'j1', multiplicity=3)
+    web.add_brane('j1', '7b_4', multiplicity=3)
+    web.add_brane('7b_4', '7b_5', multiplicity=2)
+    web.add_brane('7b_5', '7b_6', multiplicity=1)
+
+    branewebs.append(web)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+
+    web = BraneWeb()
+
+    web.add_seven_brane('7b_1', position=(-1, 0))
+    web.add_seven_brane('7b_2', position=(1, 1))
+    web.add_seven_brane('7b_3', position=(0, -1))
+
+    web.add_junction('j1', position=(0, 0))
+
+    web.add_brane('7b_1', 'j1', multiplicity=1)
+    web.add_brane('j1', '7b_2', multiplicity=1)
+    web.add_brane('j1', '7b_3', multiplicity=1)
+
+    branewebs.append(web)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+    
+    web = BraneWeb()
+
+    web.add_seven_brane('7b_1', position=(-1, 0))
+    web.add_seven_brane('7b_2', position=(1, 1))
+    web.add_seven_brane('7b_3', position=(0, -1))
+
+    web.add_junction('j1', position=(0, 0))
+
+    web.add_brane('7b_1', 'j1', multiplicity=2)
+    web.add_brane('j1', '7b_2', multiplicity=2)
+    web.add_brane('j1', '7b_3', multiplicity=2)
+
+    branewebs.append(web)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+    # 7
+
+    web = BraneWeb()
+
+    web.add_seven_brane('7b_1', position=(-1, 0))
+    web.add_seven_brane('7b_2', position=(1, 0))
+    web.add_seven_brane('7b_top', position=(0, 1))
+    web.add_seven_brane('7b_bottom', position=(0, -1))
+
+    web.add_junction('j1', position=(0, 0))
+
+    web.add_brane('7b_1', 'j1', multiplicity=1)
+    web.add_brane('j1', '7b_2', multiplicity=1)
+    web.add_brane('j1', '7b_top', multiplicity=1)
+    web.add_brane('j1', '7b_bottom', multiplicity=1)
+
+    branewebs.append(web)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+    # 8
+
+    web = BraneWeb()
+
+    web.add_seven_brane('7b_1', position=(-1, 0))
+    web.add_seven_brane('7b_2', position=(1, 0))
+    web.add_seven_brane('7b_top', position=(2, 1))
+    web.add_seven_brane('7b_bottom', position=(-2, -1))
+
+    web.add_junction('j1', position=(0, 0))
+
+    web.add_brane('7b_1', 'j1', multiplicity=1)
+    web.add_brane('j1', '7b_2', multiplicity=1)
+    web.add_brane('j1', '7b_top', multiplicity=1)
+    web.add_brane('j1', '7b_bottom', multiplicity=1)
+
+    branewebs.append(web)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+
+    web = BraneWeb()
+
+    web.add_seven_brane('7b_1', position=(-1, 0))
+    web.add_seven_brane('7b_2', position=(1, 0))
+
+    web.add_seven_brane('7b_top', position=(1, 1))
+    web.add_seven_brane('7b_bottom', position=(0, -1))
+
+    web.add_junction('j1', position=(0, 0))
+
+    web.add_brane('7b_1', 'j1', multiplicity=2)
+    web.add_brane('j1', '7b_2', multiplicity=1)
+    web.add_brane('j1', '7b_top', multiplicity=1)
+    web.add_brane('j1', '7b_bottom', multiplicity=1)
+
+    branewebs.append(web)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+
+    web = BraneWeb()
+
+    web.add_seven_brane('7b_1', position=(-2, 0))
+    web.add_seven_brane('7b_2', position=(-1, 0))
+    web.add_seven_brane('7b_diag', position=(2, 1))
+    web.add_seven_brane('7b_bottom', position=(0, -1))
+
+    web.add_junction('j1', position=(0, 0))
+
+    web.add_brane('7b_1', '7b_2', multiplicity=1)
+    web.add_brane('7b_2', 'j1', multiplicity=2)
+    web.add_brane('j1', '7b_diag', multiplicity=1)
+    web.add_brane('j1', '7b_bottom', multiplicity=1)
+
+    branewebs.append(web)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+
+    web = BraneWeb()
+
+    web.add_seven_brane('7b_1', position=(-2, 0))
+    web.add_seven_brane('7b_2', position=(-1, 0))
+    web.add_seven_brane('7b_diag1', position=(1, 1))
+    web.add_seven_brane('7b_diag2', position=(1, -1))
+    web.add_seven_brane('7b_bottom', position=(0, -1))
+    web.add_seven_brane('7b_top', position=(0, 1))
+
+    web.add_junction('j1', position=(0, 0))
+
+    web.add_brane('7b_1', '7b_2', multiplicity=1)
+    web.add_brane('7b_2', 'j1', multiplicity=4)
+    web.add_brane('j1', '7b_diag1', multiplicity=2)
+    web.add_brane('j1', '7b_diag2', multiplicity=2)
+    web.add_brane('j1', '7b_bottom', multiplicity=1)
+    web.add_brane('j1', '7b_top', multiplicity=1)
+
+    branewebs.append(web)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+
+    web = BraneWeb()
+
+    web.add_seven_brane('7b_1', position=(-2, 0))
+    web.add_seven_brane('7b_2', position=(-1, 0))
+    web.add_seven_brane('7b_diag1', position=(1, 1))
+    web.add_seven_brane('7b_diag2', position=(1, -1))
+
+    web.add_junction('j1', position=(0, 0))
+
+    web.add_brane('7b_1', '7b_2', multiplicity=1)
+    web.add_brane('7b_2', 'j1', multiplicity=2)
+    web.add_brane('j1', '7b_diag1', multiplicity=1)
+    web.add_brane('j1', '7b_diag2', multiplicity=1)
+
+    branewebs.append(web)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+
+    web = BraneWeb()
+
+    web.add_seven_brane('7b_1', position=(-3, 0))
+    web.add_seven_brane('7b_2', position=(-2, 0))
+    web.add_seven_brane('7b_3', position=(-1, 0))
+    web.add_seven_brane('7b_diag', position=(3, 1))
+    web.add_seven_brane('7b_bottom', position=(0, -1))
+
+    web.add_junction('j1', position=(0, 0))
+
+    web.add_brane('7b_1', '7b_2', multiplicity=1)
+    web.add_brane('7b_2', '7b_3', multiplicity=2)
+    web.add_brane('7b_3', 'j1', multiplicity=3)
+    web.add_brane('j1', '7b_diag', multiplicity=1)
+    web.add_brane('j1', '7b_bottom', multiplicity=1)
+
+    branewebs.append(web)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+
+    web = BraneWeb()
+
+    web.add_seven_brane('7b_1', position=(-2, 0))
+    web.add_seven_brane('7b_2', position=(-1, 0))
+    web.add_seven_brane('7b_3', position=(1, 0))
+    web.add_seven_brane('7b_4', position=(2, 0))
+    web.add_seven_brane('7b_diag_top', position=(-1, 1))
+    web.add_seven_brane('7b_diag_bottom', position=(1, -1))
+    web.add_seven_brane('7b_bottom', position=(0, -1))
+    web.add_seven_brane('7b_top', position=(0, 1))
+
+    web.add_junction('j1', position=(0, 0))
+
+    web.add_brane('7b_1', '7b_2', multiplicity=1)
+    web.add_brane('7b_2', 'j1', multiplicity=2)
+    web.add_brane('j1', '7b_3', multiplicity=2)
+    web.add_brane('7b_3', '7b_4', multiplicity=1)
+    web.add_brane('j1', '7b_diag_top', multiplicity=1)
+    web.add_brane('j1', '7b_diag_bottom', multiplicity=1)
+    web.add_brane('j1', '7b_bottom', multiplicity=1)
+    web.add_brane('j1', '7b_top', multiplicity=1)
+
+    branewebs.append(web)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+
+    web = BraneWeb()
+
+    web.add_seven_brane('7b_1', position=(-3, 0))
+    web.add_seven_brane('7b_2', position=(-2, 0))
+    web.add_seven_brane('7b_3', position=(-1, 0))
+    web.add_seven_brane('7b_4', position=(1, 0))
+    web.add_seven_brane('7b_5', position=(2, 0))
+    web.add_seven_brane('7b_6', position=(3, 0))
+
+    web.add_seven_brane('7b_diag1', position=(-2, 1))
+    web.add_seven_brane('7b_diag2', position=(1, 1))
+    web.add_seven_brane('7b_diag3', position=(1, -1))
+    web.add_seven_brane('7b_bottom', position=(0, -1))
+
+    web.add_junction('j1', position=(0, 0))
+
+    web.add_brane('7b_1', '7b_2', multiplicity=1)
+    web.add_brane('7b_2', '7b_3', multiplicity=2)
+    web.add_brane('7b_3', 'j1', multiplicity=3)
+    web.add_brane('j1', '7b_4', multiplicity=3)
+    web.add_brane('7b_4', '7b_5', multiplicity=2)
+    web.add_brane('7b_5', '7b_6', multiplicity=1)
+    web.add_brane('j1', '7b_diag1', multiplicity=1)
+    web.add_brane('j1', '7b_diag2', multiplicity=1)
+    web.add_brane('j1', '7b_diag3', multiplicity=1)
+    web.add_brane('j1', '7b_bottom', multiplicity=1)
+
+    branewebs.append(web)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+
+    web = BraneWeb()
+
+    web.add_seven_brane('7b_2', position=(-1, 0))
+    web.add_seven_brane('7b_3', position=(1, 0))
+
+    web.add_seven_brane('7b_bottom1', position=(0, -1))
+    web.add_seven_brane('7b_bottom2', position=(1, -1))
+
+    web.add_seven_brane('7b_top1', position=(0, 1))
+    web.add_seven_brane('7b_top2', position=(-1, 1))
+
+    web.add_junction('j1', position=(0, 0))
+
+    web.add_brane('7b_2', 'j1', multiplicity=1)
+    web.add_brane('j1', '7b_3', multiplicity=1)
+
+    web.add_brane('7b_bottom1', 'j1', multiplicity=1)
+    web.add_brane('7b_bottom2', 'j1', multiplicity=1)
+
+    web.add_brane('7b_top1', 'j1', multiplicity=1)
+    web.add_brane('7b_top2', 'j1', multiplicity=1)
+
+    branewebs.append(web)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+
+    web = BraneWeb()
+
+    web.add_seven_brane('7b_2', position=(-1, 0))
+    web.add_seven_brane('7b_3', position=(1, 0))
+    web.add_seven_brane('7b_4', position=(2, 0))
+
+    web.add_seven_brane('7b_bottom1', position=(0, -1))
+    web.add_seven_brane('7b_bottom2', position=(0, -2))
+
+    web.add_seven_brane('7b_top1', position=(0, 1))
+    web.add_seven_brane('7b_top2', position=(-1, 1))
+
+    web.add_junction('j1', position=(0, 0))
+
+    web.add_brane('7b_2', 'j1', multiplicity=1)
+    web.add_brane('j1', '7b_3', multiplicity=2)
+    web.add_brane('7b_3', '7b_4', multiplicity=1)
+
+    web.add_brane('7b_bottom1', 'j1', multiplicity=2)
+    web.add_brane('7b_bottom1', '7b_bottom2', multiplicity=1)
+
+    web.add_brane('7b_top1', 'j1', multiplicity=1)
+    web.add_brane('7b_top2', 'j1', multiplicity=1)
+
+    branewebs.append(web)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+
+    web = BraneWeb()
+
+    web.add_seven_brane('7b_1', position=(-2, 0))
+    web.add_seven_brane('7b_2', position=(-1, 0))
+    web.add_seven_brane('7b_3', position=(1, 0))
+    web.add_seven_brane('7b_4', position=(2, 0))
+
+    web.add_seven_brane('7b_bottom1', position=(0, -1))
+    web.add_seven_brane('7b_bottom2', position=(0, -2))
+
+    web.add_seven_brane('7b_top1', position=(0, 1))
+    web.add_seven_brane('7b_top2', position=(0, 2))
+
+    web.add_junction('j1', position=(0, 0))
+
+    web.add_brane('7b_1', '7b_2', multiplicity=1)
+    web.add_brane('7b_2', 'j1', multiplicity=2)
+    web.add_brane('j1', '7b_3', multiplicity=2)
+    web.add_brane('7b_3', '7b_4', multiplicity=1)
+
+    web.add_brane('7b_bottom1', 'j1', multiplicity=2)
+    web.add_brane('7b_bottom1', '7b_bottom2', multiplicity=1)
+
+    web.add_brane('7b_top1', 'j1', multiplicity=2)
+    web.add_brane('7b_top2', '7b_top1', multiplicity=1)
+
+    branewebs.append(web)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+
+    web = BraneWeb()
+
+
+    web.add_seven_brane('7b_1', position=(-3, 0))
+    web.add_seven_brane('7b_2', position=(-2, 0))
+    web.add_seven_brane('7b_3', position=(-1, 0))
+
+    web.add_seven_brane('7b_bottom1', position=(0, -1))
+    web.add_seven_brane('7b_bottom2', position=(0, -2))
+    web.add_seven_brane('7b_bottom3', position=(0, -3))
+
+    web.add_seven_brane('7b_diag1', position=(1, 1))
+    web.add_seven_brane('7b_diag2', position=(2, 2))
+    web.add_seven_brane('7b_diag3', position=(3, 3))
+
+    web.add_junction('j1', position=(0, 0))
+
+    web.add_brane('7b_1', '7b_2', multiplicity=1)
+    web.add_brane('7b_2', '7b_3', multiplicity=2)
+    web.add_brane('7b_3', 'j1', multiplicity=3)
+
+    web.add_brane('7b_bottom1', 'j1', multiplicity=3)
+    web.add_brane('7b_bottom2', '7b_bottom1', multiplicity=2)
+    web.add_brane('7b_bottom3', '7b_bottom2', multiplicity=1)
+
+    web.add_brane('7b_diag1', 'j1', multiplicity=3)
+    web.add_brane('7b_diag2', '7b_diag1', multiplicity=2)
+    web.add_brane('7b_diag3', '7b_diag2', multiplicity=1)
+
+    branewebs.append(web)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+
+    web = BraneWeb()
+
+    web.add_seven_brane('7b_t', position=(-3, 1))
+    web.add_seven_brane('7b_b', position=(-1, -1))
+    web.add_seven_brane('7b1', position=(1, 0))
+    web.add_seven_brane('7b2', position=(2, 0))
+    web.add_seven_brane('7b3', position=(3, 0))
+    web.add_seven_brane('7b4', position=(4, 0))
+
+    web.add_junction('j1', position=(0, 0))
+
+    web.add_brane('7b_t', 'j1', multiplicity=1)
+    web.add_brane('7b_b', 'j1', multiplicity=1)
+    web.add_brane('j1', '7b1', multiplicity=4)
+    web.add_brane('7b1', '7b2', multiplicity=3)
+    web.add_brane('7b2', '7b3', multiplicity=2)
+    web.add_brane('7b3', '7b4', multiplicity=1)
+
+    branewebs.append(web)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+
+    web = BraneWeb()
+
+    web.add_seven_brane('7b_t', position=(-3, 1))
+    web.add_seven_brane('7b_b', position=(0, -1))
+    web.add_seven_brane('7b1', position=(1, 0))
+    web.add_seven_brane('7b2', position=(2, 0))
+    web.add_seven_brane('7b3', position=(3, 0))
+
+    web.add_junction('j1', position=(0, 0))
+
+    web.add_brane('7b_t', 'j1', multiplicity=1)
+    web.add_brane('7b_b', 'j1', multiplicity=1)
+    web.add_brane('j1', '7b1', multiplicity=3)
+    web.add_brane('7b1', '7b2', multiplicity=2)
+    web.add_brane('7b2', '7b3', multiplicity=1)
+
+    branewebs.append(web)
+
+
+    return branewebs

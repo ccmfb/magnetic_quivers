@@ -212,7 +212,6 @@ class BraneWeb:
 
         return intersection_number
 
-
     def subweb_to_multilinestring(self, subweb: Subweb, offset: bool = False) -> MultiLineString:
         '''Converts Subwebs into multilinestrings'''
 
@@ -277,6 +276,12 @@ class BraneWeb:
 
             subwebs.extend(subwebs_across_junction)
 
+        #Removing disconnected pieces, not sure how they appear in the first place but fine..
+        #for subweb in subwebs:
+            #subweb_graph = BraneWeb.from_subgraph_edges(self.web, subweb)
+            #if nx.is_connected(subweb_graph.web): continue
+            #subwebs.remove(subweb)
+
         # Pieces that are solely between 7-branes
         seven_seven_branes = [
             (u, v) for u, v in self.web.edges() 
@@ -313,10 +318,8 @@ class BraneWeb:
                     extensions = self.find_extensions((junction, seven_brane), count, NS5_charge)
 
                     if len(extensions) == 0:
-                        print('no extensions found, removing subweb')
                         srule_satisfied = False
                         break
-
                     updated_subweb.extend(extensions)
 
             if srule_satisfied:
@@ -327,12 +330,14 @@ class BraneWeb:
     def find_extensions(self, brane: Brane, count: int, NS5_charge: int) -> list[Brane]:
         '''Finds possible extensions for a given brane to satisfy the S-Rule. brane needs to be (junction, seven-brane)'''
         excess = count - NS5_charge
+        if excess == 0: return []
     
         possible_extensions = self.web.edges(brane[1])
         extensions_on_other_side = []
 
         for u, v in possible_extensions:
             if v == brane[0]: continue
+            if u != brane[1]: continue
 
             extensions_on_other_side.append((u, v))
 
