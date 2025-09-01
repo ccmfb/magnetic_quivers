@@ -106,13 +106,13 @@ class BraneWeb:
             line2 = list(line2.coords)
 
             charges1 = (
-                int(line1[1][0] - line1[0][0]),
-                int(line1[1][1] - line1[0][1])
+                round(line1[1][0] - line1[0][0]),
+                round(line1[1][1] - line1[0][1])
             )
             charges1 = (charges1[0] * count1, charges1[1] * count1)
             charges2 = (
-                int(line2[1][0] - line2[0][0]),
-                int(line2[1][1] - line2[0][1])
+                round(line2[1][0] - line2[0][0]),
+                round(line2[1][1] - line2[0][1])
             )
             charges2 = (charges2[0] * count2, charges2[1] * count2)
 
@@ -218,7 +218,7 @@ class BraneWeb:
         if offset:
             offset_vec = np.random.rand(2)
             length = np.linalg.norm(offset_vec)
-            offset_vec = 0.3 * (offset_vec / length)
+            offset_vec = 0.01 * (offset_vec / length)
         else:
             offset_vec = np.array([0, 0])
 
